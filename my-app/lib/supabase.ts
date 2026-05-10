@@ -2,18 +2,25 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 let browserClient: SupabaseClient | null = null;
 
-export function isSupabaseConfigured(): boolean {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-  return Boolean(url && key);
+function getUrl(): string {
+  return process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
 }
 
+function getAnonKey(): string {
+  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? "";
+}
+
+export function isSupabaseConfigured(): boolean {
+  return Boolean(getUrl() && getAnonKey());
+}
+
+/**
+ * Singleton browser client. Uses NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.
+ */
 export function getSupabaseBrowserClient(): SupabaseClient | null {
   if (!isSupabaseConfigured()) return null;
   if (browserClient) return browserClient;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  browserClient = createClient(url, key, {
+  browserClient = createClient(getUrl(), getAnonKey(), {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
@@ -22,3 +29,5 @@ export function getSupabaseBrowserClient(): SupabaseClient | null {
   });
   return browserClient;
 }
+
+export type { SupabaseClient };

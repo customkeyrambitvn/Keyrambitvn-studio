@@ -20,7 +20,7 @@ import {
   writeLocalInventoryTitle,
   type InventoryItem,
 } from "../../lib/inventory-local";
-import { getSupabaseBrowserClient, isSupabaseConfigured } from "../../lib/supabase/browser-client";
+import { getSupabaseBrowserClient, isSupabaseConfigured } from "../../lib/supabase";
 import { fetchUserInventory, upsertUserInventory } from "../../lib/supabase/inventory-remote";
 
 function guestHasUnsyncedItems(guest: InventoryItem[], cloud: InventoryItem[]): boolean {
