@@ -1,11 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { BrandHeaderBar } from "../components/BrandHeaderBar";
 import { BrandWatermark } from "../components/BrandWatermark";
 import { FusionAnimationModal, type FusionAnimResult, type FusionAnimSnapshot } from "../components/FusionAnimationModal";
-import { MainTabNav } from "../components/MainTabNav";
+import { MainNavWithAuth } from "../components/MainNavWithAuth";
 import { ProductImageBox } from "../components/ProductImageBox";
 import { useInventoryPersist } from "../hooks/useInventoryPersist";
 import {
@@ -269,31 +268,15 @@ export default function FusionPage() {
     mode === "normal" ? NORMAL_RECIPES[normalRecipe].output : highTarget;
 
   return (
-    <main className="relative min-h-screen bg-[#06070f] text-zinc-100">
+    <main className="relative flex min-h-screen flex-1 flex-col bg-[#06070f] text-zinc-100">
       <BrandWatermark />
-      <div className="relative z-10 mx-auto w-full max-w-md px-4 py-5 sm:max-w-3xl sm:px-6">
+      <div className="relative z-10 mx-auto h-full w-full flex-1 px-4 py-5 sm:px-6">
         <BrandHeaderBar />
-        <MainTabNav />
+        <MainNavWithAuth />
 
         <header className="mb-5 rounded-2xl border border-fuchsia-500/30 bg-[#0b1020]/85 p-4 shadow-[0_0_40px_rgba(180,80,255,0.12)] backdrop-blur">
           <p className="text-xs uppercase tracking-[0.25em] text-fuchsia-300">Fusion Lab</p>
-          <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <h1 className="text-2xl font-semibold">Dung Hợp</h1>
-            <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2">
-              <Link
-                href="/collection"
-                className="rounded-full border border-fuchsia-400/50 px-4 py-2 text-sm text-fuchsia-200 transition hover:border-fuchsia-200 hover:text-white"
-              >
-                Bộ Sưu Tập
-              </Link>
-              <Link
-                href="/inventory"
-                className="rounded-full border border-fuchsia-400/50 px-4 py-2 text-sm text-fuchsia-200 transition hover:border-fuchsia-200 hover:text-white"
-              >
-                Kho ({inventory.length})
-              </Link>
-            </div>
-          </div>
+          <h1 className="mt-2 text-2xl font-semibold">Dung Hợp</h1>
         </header>
 
         <div className="mb-4 flex gap-1 rounded-xl border border-zinc-700/80 bg-[#0a0f1d] p-1">

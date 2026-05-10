@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AuthToolbar } from "./components/AuthToolbar";
+import { GlobalAuthCorner } from "./components/GlobalAuthCorner";
 import { ProductImagesProvider } from "./components/ProductImageContext";
 import { AuthProvider } from "./contexts/AuthContext";
 
@@ -33,7 +33,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <AuthProvider>
           <ProductImagesProvider>
-            <AuthToolbar />
+            <GlobalAuthCorner />
             {children}
           </ProductImagesProvider>
         </AuthProvider>

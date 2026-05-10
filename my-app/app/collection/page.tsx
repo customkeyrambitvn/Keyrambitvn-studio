@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { BrandHeaderBar } from "../components/BrandHeaderBar";
+import { MainNavWithAuth } from "../components/MainNavWithAuth";
 import { BrandWatermark } from "../components/BrandWatermark";
 import { ProductImageBox } from "../components/ProductImageBox";
 import { ITEMS_BY_RARITY, type ProductDef } from "../data/products";
@@ -52,6 +53,7 @@ export default function CollectionPage() {
       <BrandWatermark />
       <div className="relative z-10 mx-auto w-full max-w-full px-4 py-5 sm:px-6 lg:max-w-[90rem] lg:px-8">
         <BrandHeaderBar />
+        <MainNavWithAuth />
         <header className="mb-5 rounded-2xl border border-cyan-500/30 bg-[#0b1020]/85 p-4 shadow-[0_0_40px_rgba(0,170,255,0.1)] backdrop-blur">
           <p className="text-xs uppercase tracking-[0.25em] text-cyan-300">Keyrambitvn</p>
           <h1 className="mt-2 text-2xl font-semibold text-zinc-50">Bộ Sưu Tập Keyrambit</h1>

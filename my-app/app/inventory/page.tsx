@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BrandHeaderBar } from "../components/BrandHeaderBar";
+import { MainNavWithAuth } from "../components/MainNavWithAuth";
 import { BrandWatermark } from "../components/BrandWatermark";
 import { ProductImageBox } from "../components/ProductImageBox";
 import { useInventoryPersist } from "../hooks/useInventoryPersist";
@@ -138,8 +139,9 @@ export default function InventoryPage() {
   return (
     <main className="relative min-h-screen bg-[#06070f] text-zinc-100">
       <BrandWatermark />
-      <div className="relative z-10 mx-auto w-full max-w-md px-4 py-5 sm:max-w-4xl sm:px-6">
+      <div className="relative z-10 mx-auto h-full w-full px-4 py-5 sm:px-6">
         <BrandHeaderBar />
+        <MainNavWithAuth />
         <header className="mb-5 rounded-2xl border border-purple-500/35 bg-[#0b1020]/85 p-4 shadow-[0_0_40px_rgba(150,80,255,0.15)] backdrop-blur">
           <p className="text-xs uppercase tracking-[0.25em] text-violet-300">KHO KEYRAMBIT</p>
           <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

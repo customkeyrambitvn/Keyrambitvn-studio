@@ -1,15 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BrandHeaderBar } from "./components/BrandHeaderBar";
 import { BrandWatermark } from "./components/BrandWatermark";
-import { MainTabNav } from "./components/MainTabNav";
+import { MainNavWithAuth } from "./components/MainNavWithAuth";
 import { ProductImageBox } from "./components/ProductImageBox";
 import { useInventoryPersist } from "./hooks/useInventoryPersist";
 import { ITEMS_BY_RARITY } from "./data/products";
 import { productCategory } from "./lib/category";
-import { INVENTORY_CHANGED_EVENT, readLocalInventory } from "../lib/inventory-local";
+import { readLocalInventory } from "../lib/inventory-local";
 
 type Rarity = "Thường" | "Hiếm" | "Siêu Hiếm" | "Combo" | "Săn Lùng" | "Secret" | "Rare Secret" | "Super Secret";
 
@@ -163,7 +162,6 @@ function openBlindBox(boxName: string): InventoryItem {
 
 export default function Home() {
   const { saveInventory } = useInventoryPersist();
-  const [inventoryCount, setInventoryCount] = useState(0);
   const [activeBox, setActiveBox] = useState<BoxCard | null>(null);
   const [isOpening, setIsOpening] = useState(false);
   const [openingPhase, setOpeningPhase] = useState<OpeningPhase | null>(null);
@@ -176,13 +174,6 @@ export default function Home() {
   const tearStripRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
   const flashStartedRef = useRef(false);
-
-  useEffect(() => {
-    const refresh = () => setInventoryCount(readLocalInventory().length);
-    refresh();
-    window.addEventListener(INVENTORY_CHANGED_EVENT, refresh);
-    return () => window.removeEventListener(INVENTORY_CHANGED_EVENT, refresh);
-  }, []);
 
   useEffect(() => {
     if (!showAbandonConfirm) return;
@@ -309,7 +300,6 @@ export default function Home() {
     const current = readLocalInventory();
     const next = [revealedItem, ...current];
     saveInventory(next);
-    setInventoryCount(next.length);
     closeReveal();
   };
 
@@ -330,22 +320,12 @@ export default function Home() {
   return (
     <main className="relative min-h-screen bg-[#06070f] text-zinc-100">
       <BrandWatermark />
-      <div className="relative z-10 mx-auto w-full max-w-md px-4 py-5 sm:max-w-3xl sm:px-6">
+      <div className="relative z-10 mx-auto min-h-screen w-full px-4 py-5 sm:px-6">
         <BrandHeaderBar />
-        <MainTabNav />
+        <MainNavWithAuth />
         <header className="mb-5 rounded-2xl border border-cyan-500/30 bg-[#0b1020]/85 p-4 shadow-[0_0_40px_rgba(0,170,255,0.1)] backdrop-blur">
           <p className="text-xs uppercase tracking-[0.25em] text-cyan-300">Keyrambit Inventory</p>
-          <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <h1 className="text-2xl font-semibold">Keyrambitvn Store</h1>
-            <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2">
-              <Link href="/collection" className="rounded-full border border-cyan-400/50 px-4 py-2 text-sm text-cyan-200 transition hover:border-cyan-200 hover:text-white">
-                Bộ Sưu Tập Keyrambit
-              </Link>
-              <Link href="/inventory" className="rounded-full border border-cyan-400/50 px-4 py-2 text-sm text-cyan-200 transition hover:border-cyan-200 hover:text-white">
-                Kho Keyrambit ({inventoryCount})
-              </Link>
-            </div>
-          </div>
+          <h1 className="mt-2 text-2xl font-semibold">Keyrambitvn Store</h1>
         </header>
 
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
