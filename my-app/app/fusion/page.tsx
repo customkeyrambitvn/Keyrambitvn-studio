@@ -7,6 +7,7 @@ import { BrandWatermark } from "../components/BrandWatermark";
 import { FusionAnimationModal, type FusionAnimResult, type FusionAnimSnapshot } from "../components/FusionAnimationModal";
 import { MainTabNav } from "../components/MainTabNav";
 import { ProductImageBox } from "../components/ProductImageBox";
+import { useInventoryPersist } from "../hooks/useInventoryPersist";
 import {
   FUSION_BOX_NAME,
   HIGH_MAX_SLOTS,
@@ -22,33 +23,7 @@ import {
   rollSuccess,
 } from "../lib/fusion-logic";
 import { productCategory } from "../lib/category";
-
-type InventoryItem = {
-  id: string;
-  name: string;
-  rarity: string;
-  boxName: string;
-  acquiredAt: string;
-  image?: string;
-};
-
-const STORAGE_KEY = "keyrambit-inventory";
-
-function loadInventory(): InventoryItem[] {
-  if (typeof window === "undefined") return [];
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw) as InventoryItem[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveInventory(items: InventoryItem[]) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-}
+import { INVENTORY_CHANGED_EVENT, readLocalInventory, type InventoryItem } from "../../lib/inventory-local";
 
 type FusionMode = "normal" | "high";
 
@@ -107,6 +82,7 @@ function rarityGlowStyle(rarity: string): CSSProperties {
 }
 
 export default function FusionPage() {
+  const { saveInventory } = useInventoryPersist();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [mode, setMode] = useState<FusionMode>("normal");
   const [normalRecipe, setNormalRecipe] = useState<NormalRecipeId>("thuong-hiem");
@@ -121,7 +97,10 @@ export default function FusionPage() {
   const fusionResultCacheRef = useRef<FusionAnimResult | null>(null);
 
   useEffect(() => {
-    setInventory(loadInventory());
+    const refresh = () => setInventory(readLocalInventory());
+    refresh();
+    window.addEventListener(INVENTORY_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(INVENTORY_CHANGED_EVENT, refresh);
   }, []);
 
   const maxSlots = mode === "normal" ? NORMAL_RECIPES[normalRecipe].maxSlots : HIGH_MAX_SLOTS;
@@ -215,7 +194,7 @@ export default function FusionPage() {
     fusionCommitLockedRef.current = true;
 
     const ids = new Set(snap.items.map((i) => i.id));
-    const current = loadInventory();
+    const current = readLocalInventory();
     const remaining = current.filter((i) => !ids.has(i.id));
     const ok = rollSuccess(snap.successPercent);
     let reward: InventoryItem | undefined;
@@ -261,7 +240,7 @@ export default function FusionPage() {
     fusionSnapRef.current = null;
     fusionCommitLockedRef.current = false;
     fusionResultCacheRef.current = null;
-    setInventory(loadInventory());
+    setInventory(readLocalInventory());
     setSlots(emptySlots(slotsToClear));
     setResult(fusionResult);
   }, [maxSlots]);

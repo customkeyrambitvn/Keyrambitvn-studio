@@ -6,8 +6,10 @@ import { BrandHeaderBar } from "./components/BrandHeaderBar";
 import { BrandWatermark } from "./components/BrandWatermark";
 import { MainTabNav } from "./components/MainTabNav";
 import { ProductImageBox } from "./components/ProductImageBox";
+import { useInventoryPersist } from "./hooks/useInventoryPersist";
 import { ITEMS_BY_RARITY } from "./data/products";
 import { productCategory } from "./lib/category";
+import { INVENTORY_CHANGED_EVENT, readLocalInventory } from "../lib/inventory-local";
 
 type Rarity = "Thường" | "Hiếm" | "Siêu Hiếm" | "Combo" | "Săn Lùng" | "Secret" | "Rare Secret" | "Super Secret";
 
@@ -29,8 +31,6 @@ type BoxCard = {
   flavor: string;
   glow: string;
 };
-
-const STORAGE_KEY = "keyrambit-inventory";
 
 const BOXES: BoxCard[] = [
   { id: "tier", name: "Tier Keyrambit Box", cost: 125000, flavor: "Hộp Keyrambit Tier tổng hợp", glow: "from-cyan-400/60 to-blue-700/40" },
@@ -161,23 +161,8 @@ function openBlindBox(boxName: string): InventoryItem {
   };
 }
 
-function loadInventory(): InventoryItem[] {
-  if (typeof window === "undefined") return [];
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw) as InventoryItem[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveInventory(items: InventoryItem[]) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-}
-
 export default function Home() {
+  const { saveInventory } = useInventoryPersist();
   const [inventoryCount, setInventoryCount] = useState(0);
   const [activeBox, setActiveBox] = useState<BoxCard | null>(null);
   const [isOpening, setIsOpening] = useState(false);
@@ -193,7 +178,10 @@ export default function Home() {
   const flashStartedRef = useRef(false);
 
   useEffect(() => {
-    setInventoryCount(loadInventory().length);
+    const refresh = () => setInventoryCount(readLocalInventory().length);
+    refresh();
+    window.addEventListener(INVENTORY_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(INVENTORY_CHANGED_EVENT, refresh);
   }, []);
 
   useEffect(() => {
@@ -318,7 +306,7 @@ export default function Home() {
 
   const addToInventory = () => {
     if (!revealedItem) return;
-    const current = loadInventory();
+    const current = readLocalInventory();
     const next = [revealedItem, ...current];
     saveInventory(next);
     setInventoryCount(next.length);

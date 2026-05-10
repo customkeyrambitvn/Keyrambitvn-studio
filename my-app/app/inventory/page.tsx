@@ -5,7 +5,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { BrandHeaderBar } from "../components/BrandHeaderBar";
 import { BrandWatermark } from "../components/BrandWatermark";
 import { ProductImageBox } from "../components/ProductImageBox";
+import { useInventoryPersist } from "../hooks/useInventoryPersist";
 import { productCategory } from "../lib/category";
+import {
+  DEFAULT_INVENTORY_TITLE,
+  INVENTORY_CHANGED_EVENT,
+  readLocalInventory,
+  readLocalInventoryTitle,
+} from "../../lib/inventory-local";
 
 type Rarity = "Thường" | "Hiếm" | "Siêu Hiếm" | "Combo" | "Săn Lùng" | "Secret" | "Rare Secret" | "Super Secret";
 
@@ -17,10 +24,6 @@ type InventoryItem = {
   acquiredAt: string;
   image?: string;
 };
-
-const STORAGE_KEY = "keyrambit-inventory";
-const INVENTORY_TITLE_KEY = "keyrambit-inventory-title";
-const DEFAULT_INVENTORY_TITLE = "Keyrambit Collection";
 
 const RARITY_ORDER: Rarity[] = ["Thường", "Hiếm", "Siêu Hiếm", "Combo", "Săn Lùng", "Secret", "Rare Secret", "Super Secret"];
 const GLITCH_RARITIES = new Set<Rarity>(["Secret", "Rare Secret", "Super Secret"]);
@@ -54,26 +57,8 @@ function rarityToClassName(rarity: Rarity): string {
   return classMap[rarity];
 }
 
-function loadInventory(): InventoryItem[] {
-  if (typeof window === "undefined") return [];
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw) as InventoryItem[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function loadInventoryTitle(): string {
-  if (typeof window === "undefined") return DEFAULT_INVENTORY_TITLE;
-  const raw = window.localStorage.getItem(INVENTORY_TITLE_KEY);
-  if (raw == null || raw.trim() === "") return DEFAULT_INVENTORY_TITLE;
-  return raw.trim();
-}
-
 export default function InventoryPage() {
+  const { saveInventory, saveInventoryTitle } = useInventoryPersist();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [inventoryTitle, setInventoryTitle] = useState(DEFAULT_INVENTORY_TITLE);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -82,8 +67,13 @@ export default function InventoryPage() {
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setItems(loadInventory());
-    setInventoryTitle(loadInventoryTitle());
+    const refresh = () => {
+      setItems(readLocalInventory());
+      setInventoryTitle(readLocalInventoryTitle());
+    };
+    refresh();
+    window.addEventListener(INVENTORY_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(INVENTORY_CHANGED_EVENT, refresh);
   }, []);
 
   useEffect(() => {
@@ -102,9 +92,9 @@ export default function InventoryPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [showClearConfirm]);
 
-  const saveInventoryTitle = () => {
+  const commitInventoryTitle = () => {
     const next = titleDraft.trim() === "" ? DEFAULT_INVENTORY_TITLE : titleDraft.trim();
-    window.localStorage.setItem(INVENTORY_TITLE_KEY, next);
+    saveInventoryTitle(next);
     setInventoryTitle(next);
     setIsEditingTitle(false);
   };
@@ -120,7 +110,7 @@ export default function InventoryPage() {
   };
 
   const confirmClearInventory = () => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+    saveInventory([]);
     setItems([]);
     setShowClearConfirm(false);
   };
@@ -163,7 +153,7 @@ export default function InventoryPage() {
                       value={titleDraft}
                       onChange={(e) => setTitleDraft(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") saveInventoryTitle();
+                        if (e.key === "Enter") commitInventoryTitle();
                         if (e.key === "Escape") cancelEditTitle();
                       }}
                       className="min-w-[12rem] flex-1 rounded-lg border border-violet-500/50 bg-[#0a0f1d] px-3 py-2 text-lg font-semibold text-zinc-100 outline-none ring-0 focus:border-violet-400 focus:shadow-[0_0_16px_rgba(167,139,250,0.35)] sm:max-w-md"
@@ -171,7 +161,7 @@ export default function InventoryPage() {
                     />
                     <button
                       type="button"
-                      onClick={saveInventoryTitle}
+                      onClick={commitInventoryTitle}
                       className="rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200 transition hover:border-emerald-400 hover:bg-emerald-500/20"
                     >
                       Lưu
