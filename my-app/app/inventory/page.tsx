@@ -227,7 +227,7 @@ export default function InventoryPage() {
             Chưa có vật phẩm nào. Mở thêm blind box để xây dựng kho đồ.
           </div>
         ) : (
-          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             {items.map((item) => {
               const normalizedRarity = normalizeRarity(item.rarity);
               return (
