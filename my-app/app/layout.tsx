@@ -16,8 +16,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Keyrambit Inventory",
-  description: "Futuristic blind box opening and inventory system",
+  title: "Keyrambitvn",
+  description: "Keyrambitvn",
+  icons: {
+    icon: "/keyrambitvn-favicon.png",
+  },
 };
 
 export default function RootLayout({
