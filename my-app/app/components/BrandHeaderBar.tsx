@@ -9,11 +9,14 @@ const WORDMARK_SRC = "/brand/keyrambitvn-wordmark.png";
  * Wide clip + scale so square PNGs with extra transparent padding read at full visual size.
  * Container defines the on-screen “logo box”; overflow hides padded canvas edges.
  */
-export function BrandHeaderBar() {
+export function BrandHeaderBar({ dense = false }: { dense?: boolean }) {
   const [useFallback, setUseFallback] = useState(false);
 
   return (
-    <div className="mb-6 flex w-full justify-center sm:mb-7 md:mb-8" aria-label="Keyrambitvn">
+    <div
+      className={`flex w-full justify-center ${dense ? "mb-2 sm:mb-2 md:mb-2.5" : "mb-6 sm:mb-7 md:mb-8"}`}
+      aria-label="Keyrambitvn"
+    >
       {useFallback ? (
         <span className="select-none text-center text-sm font-semibold uppercase tracking-[0.38em] text-cyan-200/90 sm:text-base md:tracking-[0.42em]">
           KEYRAMBITVN

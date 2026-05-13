@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { resolveProductImagePath } from "../lib/productImageMatch";
 
 type ProductImageContextValue = {
@@ -50,4 +50,16 @@ export function useResolvedProductImage(productName: string, explicitImage?: str
   if (ex) return ex;
   if (!ctx) return null;
   return ctx.resolve(productName, null);
+}
+
+/** Resolve ảnh sản phẩm (dùng khi spawn Konva / logic không phải component). */
+export function useProductImageResolve(): (productName: string, explicitImage?: string | null) => string | null {
+  const ctx = useContext(ProductImageContext);
+  return useCallback(
+    (productName: string, explicitImage?: string | null) => {
+      if (!ctx) return explicitImage?.trim() || null;
+      return ctx.resolve(productName, explicitImage);
+    },
+    [ctx],
+  );
 }

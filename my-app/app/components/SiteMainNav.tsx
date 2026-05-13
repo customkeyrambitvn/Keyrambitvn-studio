@@ -7,6 +7,7 @@ import { INVENTORY_CHANGED_EVENT, readLocalInventory } from "../../lib/inventory
 
 const tabs = [
   { href: "/", label: "Store" },
+  { href: "/packing", label: "Đóng Hàng" },
   { href: "/fusion", label: "Dung Hợp" },
   { href: "/inventory", label: "Kho Keyrambit", showInventoryCount: true },
   { href: "/collection", label: "Bộ Sưu Tập" },

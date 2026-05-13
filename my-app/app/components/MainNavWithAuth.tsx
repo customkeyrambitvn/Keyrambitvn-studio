@@ -3,9 +3,9 @@
 import { SiteMainNav } from "./SiteMainNav";
 
 /** Main site tab bar; Google auth is fixed in the root layout (`GlobalAuthCorner`). */
-export function MainNavWithAuth() {
+export function MainNavWithAuth({ className }: { className?: string } = {}) {
   return (
-    <div className="mb-5 w-full min-w-0">
+    <div className={["mb-5 w-full min-w-0", className].filter(Boolean).join(" ")}>
       <SiteMainNav />
     </div>
   );
