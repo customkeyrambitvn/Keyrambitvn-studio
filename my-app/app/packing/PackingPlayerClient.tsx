@@ -1638,12 +1638,16 @@ export default function PackingPlayerClient() {
             onCancelActiveOrder={handleCancelActiveOrder}
           />
           <div
-            className={`pointer-events-none fixed z-[51] flex flex-col items-end gap-2 ${
+            className={`pointer-events-none fixed z-[51] ${
               showMobileUi
-                ? "bottom-[calc(5.75rem+env(safe-area-inset-bottom))]"
-                : "bottom-[max(1rem,env(safe-area-inset-bottom))]"
+                ? "bottom-[calc(5.75rem+env(safe-area-inset-bottom))] flex flex-row items-end gap-2"
+                : "bottom-[max(1rem,env(safe-area-inset-bottom))] flex flex-col items-end gap-2"
             }`}
-            style={{ right: "max(1rem, env(safe-area-inset-right))" }}
+            style={
+              showMobileUi
+                ? { left: "max(1rem, env(safe-area-inset-left))" }
+                : { right: "max(1rem, env(safe-area-inset-right))" }
+            }
           >
             <div
               ref={orderCompleteDropRef}
@@ -1652,7 +1656,11 @@ export default function PackingPlayerClient() {
               aria-label="Hoàn thành đơn — kéo gói packing-bag-done vào đây khi checklist đủ"
             >
               <div
-                className={`pointer-events-none flex h-auto min-h-[7.5rem] w-[4.5rem] origin-center flex-col items-center justify-center gap-1 rounded-2xl border px-1 py-2 text-center shadow-lg backdrop-blur-md transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out will-change-transform sm:min-h-[8rem] sm:w-[5rem] ${
+                className={`pointer-events-none flex origin-center flex-col items-center justify-center gap-1 rounded-2xl border text-center shadow-lg backdrop-blur-md transition-[transform,box-shadow,border-color,background-color] duration-200 ease-out will-change-transform ${
+                  showMobileUi
+                    ? "h-[4.5rem] w-[4.5rem] min-h-0 px-1 py-1 sm:h-[5rem] sm:w-[5rem]"
+                    : "h-auto min-h-[7.5rem] w-[4.5rem] px-1 py-2 sm:min-h-[8rem] sm:w-[5rem]"
+                } ${
                   activeOrder && orderChecklist.allOk
                     ? orderCompleteHover
                       ? "scale-110 border-emerald-300/85 bg-emerald-950/45 shadow-[0_0_28px_rgba(52,211,153,0.45)] ring-2 ring-emerald-400/50"
@@ -1662,28 +1670,47 @@ export default function PackingPlayerClient() {
                       : "scale-100 border-zinc-600/60 bg-zinc-800/40 shadow-black/40"
                 }`}
               >
-                <div className="flex flex-col items-center gap-px leading-tight">
-                  <span className="text-[10px] font-bold tracking-wide text-zinc-100">Hoàn</span>
-                  <span className="text-[10px] font-bold tracking-wide text-zinc-100">Thành</span>
-                  <span className="text-[10px] font-bold tracking-wide text-zinc-100">Đơn</span>
-                </div>
-                <div className="mt-1 flex flex-col items-center gap-px border-t border-zinc-600/40 pt-1.5 leading-tight">
-                  {activeOrder && orderChecklist.allOk ? (
-                    <>
-                      <span className="text-[7px] font-medium text-zinc-400">Kéo</span>
-                      <span className="text-[7px] font-medium text-zinc-400">gói</span>
-                      <span className="text-[6.5px] font-medium leading-none text-zinc-400">done</span>
-                      <span className="text-[7px] font-medium text-zinc-400">vào</span>
-                      <span className="text-[7px] font-medium text-zinc-400">đây</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-[7px] font-medium text-zinc-400">Làm</span>
-                      <span className="text-[7px] font-medium text-zinc-400">đủ</span>
-                      <span className="text-[6.5px] font-medium leading-snug text-zinc-400">checklist</span>
-                    </>
-                  )}
-                </div>
+                {showMobileUi ? (
+                  <>
+                    <div className="flex flex-col items-center leading-none">
+                      <span className="text-[8px] font-bold tracking-wide text-zinc-100">Hoàn</span>
+                      <span className="text-[8px] font-bold tracking-wide text-zinc-100">Thành</span>
+                      <span className="text-[8px] font-bold tracking-wide text-zinc-100">đơn</span>
+                    </div>
+                    <div className="max-w-[3.25rem] border-t border-zinc-600/40 pt-0.5 text-center leading-[1.05]">
+                      {activeOrder && orderChecklist.allOk ? (
+                        <span className="text-[6px] font-medium text-zinc-400">Kéo gói done vào</span>
+                      ) : (
+                        <span className="text-[6px] font-medium text-zinc-400">Làm đủ checklist</span>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex flex-col items-center gap-px leading-tight">
+                      <span className="text-[10px] font-bold tracking-wide text-zinc-100">Hoàn</span>
+                      <span className="text-[10px] font-bold tracking-wide text-zinc-100">Thành</span>
+                      <span className="text-[10px] font-bold tracking-wide text-zinc-100">Đơn</span>
+                    </div>
+                    <div className="mt-1 flex flex-col items-center gap-px border-t border-zinc-600/40 pt-1.5 leading-tight">
+                      {activeOrder && orderChecklist.allOk ? (
+                        <>
+                          <span className="text-[7px] font-medium text-zinc-400">Kéo</span>
+                          <span className="text-[7px] font-medium text-zinc-400">gói</span>
+                          <span className="text-[6.5px] font-medium leading-none text-zinc-400">done</span>
+                          <span className="text-[7px] font-medium text-zinc-400">vào</span>
+                          <span className="text-[7px] font-medium text-zinc-400">đây</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-[7px] font-medium text-zinc-400">Làm</span>
+                          <span className="text-[7px] font-medium text-zinc-400">đủ</span>
+                          <span className="text-[6.5px] font-medium leading-snug text-zinc-400">checklist</span>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
             <div
