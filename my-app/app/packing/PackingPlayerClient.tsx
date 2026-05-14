@@ -1640,12 +1640,15 @@ export default function PackingPlayerClient() {
           <div
             className={`pointer-events-none fixed z-[51] ${
               showMobileUi
-                ? "bottom-[calc(5.75rem+env(safe-area-inset-bottom))] flex flex-row items-end gap-2"
+                ? "bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-0 right-0 flex flex-row items-end justify-between"
                 : "bottom-[max(1rem,env(safe-area-inset-bottom))] flex flex-col items-end gap-2"
             }`}
             style={
               showMobileUi
-                ? { left: "max(1rem, env(safe-area-inset-left))" }
+                ? {
+                    paddingLeft: "max(1rem, env(safe-area-inset-left))",
+                    paddingRight: "max(1rem, env(safe-area-inset-right))",
+                  }
                 : { right: "max(1rem, env(safe-area-inset-right))" }
             }
           >
