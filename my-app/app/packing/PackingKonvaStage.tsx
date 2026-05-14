@@ -89,6 +89,119 @@ function uniformCoverLayout(
   return { imgW, imgH, imgX, imgY };
 }
 
+/** Alpha tối thiểu để coi pixel là có vật liệu (hit-test). */
+const PACKING_HIT_ALPHA_THRESHOLD = 32;
+/** Ô lưới hit-test (px layout); cân bằng hiệu năng vs độ chính xác. */
+const PACKING_HIT_CELL_PX = 5;
+
+type OpaqueHitCellPack = { xs: number[]; ys: number[]; cw: number; ch: number };
+
+function scanOpaqueCellsInImageData(
+  d: Uint8ClampedArray,
+  W: number,
+  H: number,
+  cw: number,
+  ch: number,
+  threshold: number,
+): { xs: number[]; ys: number[] } {
+  const cols = Math.ceil(W / cw);
+  const rows = Math.ceil(H / ch);
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (let gy = 0; gy < rows; gy++) {
+    for (let gx = 0; gx < cols; gx++) {
+      const x0 = gx * cw;
+      const y0 = gy * ch;
+      const x1 = Math.min(W, x0 + cw);
+      const y1 = Math.min(H, y0 + ch);
+      let hit = false;
+      for (let y = y0; y < y1 && !hit; y += 2) {
+        for (let x = x0; x < x1 && !hit; x += 2) {
+          const i = (y * W + x) * 4 + 3;
+          if (d[i]! > threshold) hit = true;
+        }
+      }
+      if (hit) {
+        xs.push(x0);
+        ys.push(y0);
+      }
+    }
+  }
+  return { xs, ys };
+}
+
+/** Giống clip + cover trong khung W×H của layout asset (ảnh có thể tràn ra ngoài, chỉ vùng clip hiển thị). */
+function buildOpaqueHitCellPackClippedCover(
+  image: HTMLImageElement,
+  sx: number,
+  sy: number,
+  sw: number,
+  sh: number,
+  u: { imgX: number; imgY: number; imgW: number; imgH: number },
+  W: number,
+  H: number,
+): OpaqueHitCellPack | null {
+  const cw = Math.min(Math.max(3, PACKING_HIT_CELL_PX), Math.max(1, W));
+  const ch = Math.min(Math.max(3, PACKING_HIT_CELL_PX), Math.max(1, H));
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.floor(W));
+  c.height = Math.max(1, Math.floor(H));
+  const g = c.getContext("2d", { willReadFrequently: true });
+  if (!g) return null;
+  g.clearRect(0, 0, c.width, c.height);
+  g.save();
+  g.beginPath();
+  g.rect(0, 0, c.width, c.height);
+  g.clip();
+  g.drawImage(image, sx, sy, sw, sh, u.imgX, u.imgY, u.imgW, u.imgH);
+  g.restore();
+  let data: ImageData;
+  try {
+    data = g.getImageData(0, 0, c.width, c.height);
+  } catch {
+    return null;
+  }
+  const { xs, ys } = scanOpaqueCellsInImageData(data.data, c.width, c.height, cw, ch, PACKING_HIT_ALPHA_THRESHOLD);
+  if (xs.length === 0) return { xs: [0], ys: [0], cw, ch };
+  return { xs, ys, cw, ch };
+}
+
+/** Stretch toàn bitmap vào W×H (đơn trên bàn / stack). */
+function buildOpaqueHitCellPackStretch(image: HTMLImageElement, W: number, H: number): OpaqueHitCellPack | null {
+  const nw = Math.max(1, image.naturalWidth || image.width || 1);
+  const nh = Math.max(1, image.naturalHeight || image.height || 1);
+  const cw = Math.min(Math.max(3, PACKING_HIT_CELL_PX), Math.max(1, W));
+  const ch = Math.min(Math.max(3, PACKING_HIT_CELL_PX), Math.max(1, H));
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.floor(W));
+  c.height = Math.max(1, Math.floor(H));
+  const g = c.getContext("2d", { willReadFrequently: true });
+  if (!g) return null;
+  g.clearRect(0, 0, c.width, c.height);
+  g.drawImage(image, 0, 0, nw, nh, 0, 0, c.width, c.height);
+  let data: ImageData;
+  try {
+    data = g.getImageData(0, 0, c.width, c.height);
+  } catch {
+    return null;
+  }
+  const { xs, ys } = scanOpaqueCellsInImageData(data.data, c.width, c.height, cw, ch, PACKING_HIT_ALPHA_THRESHOLD);
+  if (xs.length === 0) return { xs: [0], ys: [0], cw, ch };
+  return { xs, ys, cw, ch };
+}
+
+function fillHitPathFromOpaquePack(ctx: Konva.Context, pack: OpaqueHitCellPack | null, W: number, H: number) {
+  ctx.beginPath();
+  if (!pack || pack.xs.length === 0) {
+    ctx.rect(0, 0, W, H);
+  } else {
+    for (let i = 0; i < pack.xs.length; i++) {
+      ctx.rect(pack.xs[i]!, pack.ys[i]!, pack.cw, pack.ch);
+    }
+  }
+  ctx.closePath();
+}
+
 /** Inverse of uniform slot mapping: visible rectangle in source pixels for clip [0,viewW]×[0,viewH]. */
 function cropFromUniformInnerNode(node: Konva.Image, nw: number, nh: number, viewW: number, viewH: number): PackingImageCrop {
   const rawW = node.width() * node.scaleX();
@@ -203,6 +316,24 @@ function LayoutImage({
     }
   }, [imageStatus, asset.src]);
 
+  const nwForHit = image ? Math.max(1, image.naturalWidth || image.width || 1) : 1;
+  const nhForHit = image ? Math.max(1, image.naturalHeight || image.height || 1) : 1;
+  const { sx: sxHit, sy: syHit, sw: swHit, sh: shHit } = safeSourceRect(nwForHit, nhForHit, asset.crop);
+  const uHit = useMemo(
+    () => uniformCoverLayout(nwForHit, nhForHit, W, H, sxHit, syHit, swHit, shHit),
+    [nwForHit, nhForHit, W, H, sxHit, syHit, swHit, shHit],
+  );
+
+  const editorOpaqueHitPack = useMemo(() => {
+    if (!image || !editMode || cropEditActive) return null;
+    return buildOpaqueHitCellPackClippedCover(image, sxHit, syHit, swHit, shHit, uHit, W, H);
+  }, [image, editMode, cropEditActive, sxHit, syHit, swHit, shHit, uHit, W, H]);
+
+  const printerOpaqueHitPack = useMemo(() => {
+    if (!image || editMode || !playPrinter || !isLayoutPrinterDecorAsset(asset)) return null;
+    return buildOpaqueHitCellPackClippedCover(image, sxHit, syHit, swHit, shHit, uHit, W, H);
+  }, [image, editMode, playPrinter, asset, sxHit, syHit, swHit, shHit, uHit, W, H]);
+
   if (!image) {
     const failed = imageStatus === "failed";
     if (!editMode) {
@@ -314,11 +445,10 @@ function LayoutImage({
     );
   }
 
-  const nw = Math.max(1, image.naturalWidth || image.width || 1);
-  const nh = Math.max(1, image.naturalHeight || image.height || 1);
-
-  const { sx, sy, sw, sh } = safeSourceRect(nw, nh, asset.crop);
-  const u = uniformCoverLayout(nw, nh, W, H, sx, sy, sw, sh);
+  const nw = nwForHit;
+  const nh = nhForHit;
+  const { sx, sy, sw, sh } = { sx: sxHit, sy: syHit, sw: swHit, sh: shHit };
+  const u = uHit;
 
   if (!editMode) {
     if (playPrinter && isLayoutPrinterDecorAsset(asset)) {
@@ -375,9 +505,7 @@ function LayoutImage({
             listening
             sceneFunc={() => {}}
             hitFunc={(ctx, shape) => {
-              ctx.beginPath();
-              ctx.rect(0, 0, W, H);
-              ctx.closePath();
+              fillHitPathFromOpaquePack(ctx, printerOpaqueHitPack, W, H);
               ctx.fillStrokeShape(shape);
             }}
             onClick={
@@ -544,9 +672,7 @@ function LayoutImage({
         listening
         sceneFunc={() => {}}
         hitFunc={(ctx, shape) => {
-          ctx.beginPath();
-          ctx.rect(0, 0, W, H);
-          ctx.closePath();
+          fillHitPathFromOpaquePack(ctx, editorOpaqueHitPack, W, H);
           ctx.fillStrokeShape(shape);
         }}
         onMouseDown={(e) => {
@@ -622,6 +748,15 @@ function LayoutWarehouseLinkedStack({
     }
   }, [imageStatus, asset.src]);
 
+  const layoutStackOpaqueHitPack = useMemo(() => {
+    if (!image) return null;
+    const nw0 = Math.max(1, image.naturalWidth || image.width || 1);
+    const nh0 = Math.max(1, image.naturalHeight || image.height || 1);
+    const sr = safeSourceRect(nw0, nh0, asset.crop);
+    const u0 = uniformCoverLayout(nw0, nh0, W, H, sr.sx, sr.sy, sr.sw, sr.sh);
+    return buildOpaqueHitCellPackClippedCover(image, sr.sx, sr.sy, sr.sw, sr.sh, u0, W, H);
+  }, [image, asset.crop, W, H]);
+
   const onPointerDownHit = useCallback(
     (e: Konva.KonvaEventObject<PointerEvent>) => {
       e.cancelBubble = true;
@@ -696,20 +831,21 @@ function LayoutWarehouseLinkedStack({
     [asset.id],
   );
 
-  const hitShape = (
-    <Shape
-      width={W}
-      height={H}
-      listening
-      sceneFunc={() => {}}
-      hitFunc={(ctx, shape) => {
-        ctx.beginPath();
-        ctx.rect(0, 0, W, H);
-        ctx.closePath();
-        ctx.fillStrokeShape(shape);
-      }}
-      onPointerDown={onPointerDownHit}
-    />
+  const hitShapeEl = useMemo(
+    () => (
+      <Shape
+        width={W}
+        height={H}
+        listening
+        sceneFunc={() => {}}
+        hitFunc={(ctx, shape) => {
+          fillHitPathFromOpaquePack(ctx, layoutStackOpaqueHitPack, W, H);
+          ctx.fillStrokeShape(shape);
+        }}
+        onPointerDown={onPointerDownHit}
+      />
+    ),
+    [W, H, layoutStackOpaqueHitPack, onPointerDownHit],
   );
 
   if (!image) {
@@ -733,7 +869,7 @@ function LayoutWarehouseLinkedStack({
           strokeWidth={1}
           listening={false}
         />
-        {hitShape}
+        {hitShapeEl}
       </Group>
     );
   }
@@ -768,7 +904,7 @@ function LayoutWarehouseLinkedStack({
         shadowOffsetY={0}
       />
       {!inStock ? <Rect width={W} height={H} fill="rgba(71,85,105,0.48)" listening={false} /> : null}
-      {hitShape}
+      {hitShapeEl}
     </Group>
   );
 }
@@ -815,6 +951,11 @@ function UserTableStackNode({
     },
     [listening, stack.quantity, stack.id, onStackTakeOne],
   );
+
+  const stackTableHitPack = useMemo(() => {
+    if (!image) return null;
+    return buildOpaqueHitCellPackStretch(image, stack.width, stack.height);
+  }, [image, stack.width, stack.height]);
 
   return (
     <Group
@@ -876,13 +1017,17 @@ function UserTableStackNode({
           align="center"
         />
       </Group>
-      {/* Vùng bấm toàn khung: ảnh con + Group draggable khiến onTap trên Image thường không chạy; lớp này nhận tap/click (alpha cực nhỏ, gần như không thấy). */}
-      <Rect
+      {/* Hit theo alpha ảnh (tránh vùng trong suốt chồng stack). */}
+      <Shape
         name="packing-stack-hit"
         width={stack.width}
         height={stack.height}
-        fill="rgba(0,0,0,0.004)"
         listening={listening}
+        sceneFunc={() => {}}
+        hitFunc={(ctx, shape) => {
+          fillHitPathFromOpaquePack(ctx, stackTableHitPack, stack.width, stack.height);
+          ctx.fillStrokeShape(shape);
+        }}
         onTap={takeOneFromTap}
         onClick={takeOneFromTap}
       />
@@ -982,6 +1127,11 @@ function UserPlacedLayerImage({
     }
   }, [imageStatus, item.src]);
 
+  const singleStretchHitPack = useMemo(() => {
+    if (!image) return null;
+    return buildOpaqueHitCellPackStretch(image, item.width, item.height);
+  }, [image, item.width, item.height]);
+
   const onDragEndInner = (e: Konva.KonvaEventObject<DragEvent>) => {
     const n = e.target;
     const c = pointerClientXY(e.evt);
@@ -1073,6 +1223,10 @@ function UserPlacedLayerImage({
           height={item.height}
           opacity={1}
           listening={interactive}
+          hitFunc={(ctx, shape) => {
+            fillHitPathFromOpaquePack(ctx, singleStretchHitPack, item.width, item.height);
+            ctx.fillStrokeShape(shape);
+          }}
         />
         <Text
           x={0}
@@ -1083,7 +1237,7 @@ function UserPlacedLayerImage({
           fontStyle="bold"
           fill={silverLabelColor}
           align="center"
-          listening={interactive}
+          listening={false}
         />
       </Group>
     );
@@ -1116,6 +1270,10 @@ function UserPlacedLayerImage({
           height={item.height}
           opacity={1}
           listening={interactive}
+          hitFunc={(ctx, shape) => {
+            fillHitPathFromOpaquePack(ctx, singleStretchHitPack, item.width, item.height);
+            ctx.fillStrokeShape(shape);
+          }}
         />
         <Text
           x={0}
@@ -1125,7 +1283,7 @@ function UserPlacedLayerImage({
           fontSize={9}
           fill="#94a3b8"
           align="center"
-          listening={interactive}
+          listening={false}
           lineHeight={1.15}
         />
       </Group>
@@ -1151,6 +1309,10 @@ function UserPlacedLayerImage({
       onDragStart={onPaperDragStart}
       onDragMove={onDragMoveInner}
       onDragEnd={interactive ? onDragEndInner : undefined}
+      hitFunc={(ctx, shape) => {
+        fillHitPathFromOpaquePack(ctx, singleStretchHitPack, item.width, item.height);
+        ctx.fillStrokeShape(shape);
+      }}
     />
   );
 }
@@ -1193,6 +1355,11 @@ function UserPlacedKeyrambitImage({
         }
       : undefined;
 
+  const keyrambitStretchHitPack = useMemo(() => {
+    if (!image) return null;
+    return buildOpaqueHitCellPackStretch(image, item.width, item.height);
+  }, [image, item.width, item.height]);
+
   if (!image) {
     const failed = imageStatus === "failed";
     return (
@@ -1232,6 +1399,10 @@ function UserPlacedKeyrambitImage({
       listening={interactive}
       onDragMove={onDragMoveInner}
       onDragEnd={interactive ? onDragEndInner : undefined}
+      hitFunc={(ctx, shape) => {
+        fillHitPathFromOpaquePack(ctx, keyrambitStretchHitPack, item.width, item.height);
+        ctx.fillStrokeShape(shape);
+      }}
     />
   );
 }
