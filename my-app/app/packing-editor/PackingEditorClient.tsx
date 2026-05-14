@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { PackingKonvaStage } from "../packing/PackingKonvaStage";
 import { PACKING_EDITOR_PRESETS } from "./packing-editor-presets";
 import { PackingCropPanel } from "./PackingCropPanel";
@@ -94,13 +94,61 @@ function addPreset(
   };
 }
 
-export default function PackingEditorClient() {
+/** Stage dọc chuẩn mobile editor (9:16). */
+const MOBILE_EDITOR_STAGE_W = 1080;
+const MOBILE_EDITOR_STAGE_H = 1920;
+
+/**
+ * Đưa layout vào khung dọc cho `/packing-editor-mobile`: stage 1080×1920, scale đều + căn giữa.
+ * Nếu JSON đã dọc (height > width), chỉ fit/normalize về cùng kích thước stage.
+ */
+function toPortraitMobileEditorLayout(layout: PackingLayout): PackingLayout {
+  const sw = layout.stage.width;
+  const sh = layout.stage.height;
+  if (sw <= 0 || sh <= 0) return layout;
+  const TW = MOBILE_EDITOR_STAGE_W;
+  const TH = MOBILE_EDITOR_STAGE_H;
+  const s = Math.min(TW / sw, TH / sh);
+  const w2 = sw * s;
+  const h2 = sh * s;
+  const ox = (TW - w2) / 2;
+  const oy = (TH - h2) / 2;
+  return {
+    ...layout,
+    stage: { ...layout.stage, width: TW, height: TH },
+    assets: layout.assets.map((a) => ({
+      ...a,
+      x: a.x * s + ox,
+      y: a.y * s + oy,
+      width: a.width * s,
+      height: a.height * s,
+    })),
+  };
+}
+
+/** Khung preview 9:16 (dọc) nằm gọn trong ô boxW × boxH (pixel). */
+function fitPortrait916InBox(boxW: number, boxH: number): { w: number; h: number } {
+  if (boxW <= 0 || boxH <= 0) return { w: 0, h: 0 };
+  const w = Math.min(boxW, (boxH * 9) / 16);
+  const h = (w * 16) / 9;
+  return { w: Math.max(1, Math.floor(w)), h: Math.max(1, Math.floor(h)) };
+}
+
+export default function PackingEditorClient({
+  editorVariant = "default",
+  defaultLayoutUrl = PACKING_LAYOUT_DEFAULT_URL,
+}: {
+  editorVariant?: "default" | "mobile";
+  /** Mặc định: `/layouts/packing-default.json`. Mobile editor dùng `packing-layout-mobile.json`. */
+  defaultLayoutUrl?: string;
+}) {
   const [hist, setHist] = useState<HistoryState>({ past: [], present: null, future: [] });
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   /** Canvas crop tool: drag image = pan crop, handles = zoom crop (not resize frame). */
   const [canvasCropMode, setCanvasCropMode] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const canvasHostRef = useRef<HTMLDivElement>(null);
+  const hadMobileLayoutMeasureRef = useRef(false);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -149,9 +197,15 @@ export default function PackingEditorClient() {
     });
   }, []);
 
+  const layoutInitSource = useMemo(
+    () => ({ editorVariant, defaultLayoutUrl }),
+    [editorVariant, defaultLayoutUrl],
+  );
+
   useEffect(() => {
     let cancelled = false;
-    fetch(PACKING_LAYOUT_DEFAULT_URL)
+    const { editorVariant: variant, defaultLayoutUrl: url } = layoutInitSource;
+    fetch(url)
       .then((r) => {
         if (!r.ok) throw new Error("not found");
         return r.json();
@@ -160,7 +214,9 @@ export default function PackingEditorClient() {
         if (cancelled) return;
         const p = parsePackingLayout(json);
         if (!p) throw new Error("invalid");
-        resetHistory(p);
+        const initial = variant === "mobile" ? toPortraitMobileEditorLayout(p) : p;
+        hadMobileLayoutMeasureRef.current = false;
+        resetHistory(initial);
         setLoadError(null);
       })
       .catch(() => {
@@ -169,20 +225,69 @@ export default function PackingEditorClient() {
     return () => {
       cancelled = true;
     };
-  }, [resetHistory]);
+  }, [resetHistory, layoutInitSource]);
 
   useEffect(() => {
-    const el = wrapRef.current;
+    const el = canvasHostRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => {
+    const PAD = 12;
+    const measure = () => {
       const r = el.getBoundingClientRect();
-      setSize({ w: Math.max(0, Math.floor(r.width)), h: Math.max(0, Math.floor(r.height)) });
-    });
+      const rawW = Math.floor(r.width);
+      const rawH = Math.floor(r.height);
+      if (editorVariant === "mobile") {
+        const iw = Math.max(0, rawW - PAD * 2);
+        const ih = Math.max(0, rawH - PAD * 2);
+        setSize(fitPortrait916InBox(iw, ih));
+      } else {
+        setSize({ w: Math.max(0, rawW), h: Math.max(0, rawH) });
+      }
+    };
+    const ro = new ResizeObserver(() => measure());
     ro.observe(el);
-    const r = el.getBoundingClientRect();
-    setSize({ w: Math.max(0, Math.floor(r.width)), h: Math.max(0, Math.floor(r.height)) });
-    return () => ro.disconnect();
-  }, []);
+    measure();
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      measure();
+      raf2 = requestAnimationFrame(measure);
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      ro.disconnect();
+    };
+  }, [editorVariant]);
+
+  /** Lần đầu có layout (mobile): đo lại — lúc mount host đôi khi vẫn 0×0. */
+  useLayoutEffect(() => {
+    if (editorVariant !== "mobile") {
+      hadMobileLayoutMeasureRef.current = false;
+      return;
+    }
+    const has = layout != null;
+    if (!has) {
+      hadMobileLayoutMeasureRef.current = false;
+      return;
+    }
+    if (hadMobileLayoutMeasureRef.current) return;
+    hadMobileLayoutMeasureRef.current = true;
+    const el = canvasHostRef.current;
+    if (!el) return;
+    const PAD = 12;
+    const run = () => {
+      const r = el.getBoundingClientRect();
+      const iw = Math.max(0, Math.floor(r.width) - PAD * 2);
+      const ih = Math.max(0, Math.floor(r.height) - PAD * 2);
+      setSize(fitPortrait916InBox(iw, ih));
+    };
+    run();
+    const r1 = requestAnimationFrame(run);
+    const r2 = requestAnimationFrame(() => requestAnimationFrame(run));
+    return () => {
+      cancelAnimationFrame(r1);
+      cancelAnimationFrame(r2);
+    };
+  }, [layout, editorVariant]);
 
   useEffect(() => {
     if (!layout || !selectedId) return;
@@ -307,7 +412,9 @@ export default function PackingEditorClient() {
           window.alert("Invalid layout JSON.");
           return;
         }
-        resetHistory(p);
+        const initial = editorVariant === "mobile" ? toPortraitMobileEditorLayout(p) : p;
+        hadMobileLayoutMeasureRef.current = false;
+        resetHistory(initial);
         setSelectedId(null);
       } catch {
         window.alert("Could not parse JSON file.");
@@ -315,18 +422,20 @@ export default function PackingEditorClient() {
     };
     reader.readAsText(f);
     e.target.value = "";
-  }, [resetHistory]);
+  }, [resetHistory, editorVariant]);
 
   return (
     <div className="flex h-dvh min-h-dvh w-full flex-col overflow-hidden bg-[#0a0c12] text-zinc-100">
       <header className="shrink-0 border-b border-zinc-800 bg-[#06070f] px-3 py-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">Packing editor</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">
+            {editorVariant === "mobile" ? "Packing editor (mobile)" : "Packing editor"}
+          </span>
           <Link
-            href="/packing"
+            href={editorVariant === "mobile" ? "/packing?view=mobile" : "/packing"}
             className="rounded border border-zinc-600 px-2 py-1 text-[11px] text-zinc-300 hover:border-cyan-500/50 hover:text-cyan-100"
           >
-            Xem /packing
+            {editorVariant === "mobile" ? "Xem /packing (mobile)" : "Xem /packing"}
           </Link>
           <button
             type="button"
@@ -366,8 +475,14 @@ export default function PackingEditorClient() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <aside className="flex w-64 shrink-0 flex-col gap-3 overflow-y-auto border-r border-zinc-800 bg-[#070910] p-3">
+      <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
+        <aside
+          className={
+            editorVariant === "mobile"
+              ? "flex w-60 max-w-[min(42vw,18rem)] shrink-0 flex-col gap-3 overflow-y-auto border-r border-zinc-800 bg-[#070910] p-3 min-h-0"
+              : "flex w-64 shrink-0 flex-col gap-3 overflow-y-auto border-r border-zinc-800 bg-[#070910] p-3"
+          }
+        >
           <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">Add asset</p>
           <div className="flex flex-col gap-1.5">
             {PACKING_EDITOR_PRESETS.map((p) => (
@@ -673,8 +788,46 @@ export default function PackingEditorClient() {
           )}
         </aside>
 
-        <div ref={wrapRef} className="relative min-h-0 min-w-0 flex-1 bg-[#05070c]">
-          {layout && !loadError ? (
+        <div
+          ref={canvasHostRef}
+          className={
+            editorVariant === "mobile"
+              ? "relative flex min-h-0 min-w-0 flex-1 items-center justify-center bg-[#05070c] p-2"
+              : "relative min-h-0 min-w-0 flex-1 bg-[#05070c]"
+          }
+        >
+          {editorVariant === "mobile" ? (
+            <div
+              className="relative shrink-0 overflow-hidden rounded-xl border border-zinc-800/90 shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
+              style={{
+                width: size.w > 0 ? size.w : undefined,
+                height: size.h > 0 ? size.h : undefined,
+                minWidth: size.w > 0 ? size.w : 1,
+                minHeight: size.h > 0 ? size.h : 1,
+              }}
+            >
+              {layout && !loadError && size.w > 0 && size.h > 0 ? (
+                <PackingKonvaStage
+                  layout={layout}
+                  editMode
+                  containerWidth={size.w}
+                  containerHeight={size.h}
+                  selectedId={selectedId}
+                  cropEditAssetId={cropEditAssetId}
+                  onSelectId={setSelectedId}
+                  onAssetChange={patchAsset}
+                />
+              ) : loadError ? (
+                <div className="flex h-full min-h-[12rem] w-full min-w-[8rem] items-center justify-center px-4 text-center text-sm text-zinc-400">
+                  {loadError}
+                </div>
+              ) : (
+                <div className="flex h-full min-h-[12rem] w-full min-w-[8rem] items-center justify-center text-sm text-zinc-500">
+                  Loading…
+                </div>
+              )}
+            </div>
+          ) : layout && !loadError ? (
             <PackingKonvaStage
               layout={layout}
               editMode

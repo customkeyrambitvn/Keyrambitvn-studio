@@ -183,6 +183,7 @@ function LayoutImage({
     warmingAssetId: string | null;
     warmingProgress01: number;
     onPrinterTap: (asset: PackingLayoutAsset) => void;
+    preferTapOnPrinter?: boolean;
   } | null;
 }) {
   const crossOrigin = /^https?:\/\//i.test(asset.src) ? "anonymous" : undefined;
@@ -235,10 +236,22 @@ function LayoutImage({
                 ctx.closePath();
                 ctx.fillStrokeShape(shape);
               }}
-              onClick={(e) => {
-                e.cancelBubble = true;
-                playPrinter.onPrinterTap(asset);
-              }}
+              onClick={
+                playPrinter.preferTapOnPrinter
+                  ? undefined
+                  : (e) => {
+                      e.cancelBubble = true;
+                      playPrinter.onPrinterTap(asset);
+                    }
+              }
+              onTap={
+                playPrinter.preferTapOnPrinter
+                  ? (e) => {
+                      e.cancelBubble = true;
+                      playPrinter.onPrinterTap(asset);
+                    }
+                  : undefined
+              }
             />
           </Group>
         );
@@ -367,10 +380,22 @@ function LayoutImage({
               ctx.closePath();
               ctx.fillStrokeShape(shape);
             }}
-            onClick={(e) => {
-              e.cancelBubble = true;
-              playPrinter.onPrinterTap(asset);
-            }}
+            onClick={
+              playPrinter.preferTapOnPrinter
+                ? undefined
+                : (e) => {
+                    e.cancelBubble = true;
+                    playPrinter.onPrinterTap(asset);
+                  }
+            }
+            onTap={
+              playPrinter.preferTapOnPrinter
+                ? (e) => {
+                    e.cancelBubble = true;
+                    playPrinter.onPrinterTap(asset);
+                  }
+                : undefined
+            }
           />
         </Group>
       );
@@ -1226,6 +1251,8 @@ export type PackingKonvaStageProps = {
     warmingAssetId: string | null;
     warmingProgress01: number;
     onPrinterTap: (asset: PackingLayoutAsset) => void;
+    /** Mobile: dùng `onTap` thay `onClick` để chạm nhận trên Konva. */
+    preferTapOnPrinter?: boolean;
   } | null;
   /** Stack đặt từ kho (legacy / tuỳ chọn). */
   tableStacks?: PackingTableStack[];

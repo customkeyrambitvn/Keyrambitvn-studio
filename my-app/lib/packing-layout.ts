@@ -53,6 +53,9 @@ export type PackingLayout = {
 /** Default layout shipped with the app (player + editor initial). */
 export const PACKING_LAYOUT_DEFAULT_URL = "/layouts/packing-default.json";
 
+/** Layout mặc định cho mobile (`/packing?view=mobile`, viewport nhỏ) và packing-editor-mobile. */
+export const PACKING_LAYOUT_MOBILE_DEFAULT_URL = "/layouts/packing-layout-mobile.json";
+
 /**
  * When the editor clicks "Save layout", JSON is also written here so `/packing` can show the same
  * layout in this browser without replacing files under `public/`.

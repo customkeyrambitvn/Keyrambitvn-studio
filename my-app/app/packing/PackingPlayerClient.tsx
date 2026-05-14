@@ -21,6 +21,7 @@ import { buildPendingOrderQueue, generateOrder, getKeyrambitStock } from "@/lib/
 import type { PackingOrder, PlayerKeyrambitInventoryItem } from "@/lib/packing-orders-types";
 import {
   PACKING_LAYOUT_DEFAULT_URL,
+  PACKING_LAYOUT_MOBILE_DEFAULT_URL,
   PACKING_LAYOUT_LOCALSTORAGE_KEY,
   PACKING_LAYOUT_SAVED_EVENT,
   parsePackingLayout,
@@ -43,6 +44,11 @@ import {
   paperBoxGeometryAfterStageChange,
   resolveSingleItemIdForWarehouseGroup,
 } from "@/src/config/packing/singleItemSizeConfig";
+import {
+  getSingleItemSizeForWarehouseGroupMobile,
+  getSingleItemSizePxMobile,
+  paperBoxGeometryAfterStageChangeMobile,
+} from "@/src/config/packing/singleItemSizeConfigMobile";
 import type { PaperBoxStage } from "@/lib/packing-paper-box-workflow";
 import {
   initialPaperBoxStage,
@@ -116,6 +122,36 @@ export default function PackingPlayerClient() {
     if (viewParam === "desktop") return false;
     return isMobileViewport;
   }, [viewParam, isMobileViewport]);
+
+  type PackingItemSizeApi = {
+    getSingleItemSizePx: (itemId: string) => { width: number; height: number };
+    getSingleItemSizeForWarehouseGroup: (groupId: string) => { width: number; height: number };
+    paperBoxGeometryAfterStageChange: (
+      x: number,
+      y: number,
+      w: number,
+      h: number,
+      stage: PaperBoxStage,
+    ) => { x: number; y: number; width: number; height: number; itemId: string };
+  };
+
+  const itemSizeApi: PackingItemSizeApi = useMemo(
+    () =>
+      showMobileUi
+        ? {
+            getSingleItemSizePx: getSingleItemSizePxMobile,
+            getSingleItemSizeForWarehouseGroup: getSingleItemSizeForWarehouseGroupMobile,
+            paperBoxGeometryAfterStageChange: paperBoxGeometryAfterStageChangeMobile,
+          }
+        : {
+            getSingleItemSizePx,
+            getSingleItemSizeForWarehouseGroup,
+            paperBoxGeometryAfterStageChange,
+          },
+    [showMobileUi],
+  );
+  const itemSizeApiRef = useRef(itemSizeApi);
+  itemSizeApiRef.current = itemSizeApi;
 
   const [persistHydrated, setPersistHydrated] = useState(() => usePackingSimulatorStore.persist.hasHydrated());
   const [err, setErr] = useState<string | null>(null);
@@ -302,7 +338,7 @@ export default function PackingPlayerClient() {
             const g = packingInventoryDefaults.find((x) => x.groupId === "silver_sealed_bag");
             if (!g) return s;
             const itemId = resolveSingleItemIdForWarehouseGroup("silver_sealed_bag");
-            const { width: nw, height: nh } = getSingleItemSizeForWarehouseGroup("silver_sealed_bag");
+            const { width: nw, height: nh } = itemSizeApiRef.current.getSingleItemSizeForWarehouseGroup("silver_sealed_bag");
             const eff = liveSealSnap?.id === s.id ? { ...s, x: liveSealSnap.x, y: liveSealSnap.y } : s;
             const cx = eff.x + eff.width / 2;
             const cy = eff.y + eff.height / 2;
@@ -336,6 +372,8 @@ export default function PackingPlayerClient() {
     if (!persistHydrated) return;
     let cancelled = false;
 
+    const defaultLayoutUrl = showMobileUi ? PACKING_LAYOUT_MOBILE_DEFAULT_URL : PACKING_LAYOUT_DEFAULT_URL;
+
     const finish = (p: PackingLayout | null, error: string | null) => {
       if (cancelled) return;
       if (p) {
@@ -349,7 +387,7 @@ export default function PackingPlayerClient() {
 
     const loadFromNetwork = async (): Promise<{ layout: PackingLayout | null; error: string | null }> => {
       try {
-        const r = await fetch(PACKING_LAYOUT_DEFAULT_URL);
+        const r = await fetch(defaultLayoutUrl);
         if (!r.ok) throw new Error("not found");
         const json = await r.json();
         const p = parsePackingLayout(json);
@@ -379,7 +417,7 @@ export default function PackingPlayerClient() {
             console.warn(
               "[packing] Có dữ liệu trong localStorage nhưng không đúng schema (parsePackingLayout trả null).",
               "Kiểm tra version, assets, số. Dùng layout mặc định từ",
-              PACKING_LAYOUT_DEFAULT_URL,
+              defaultLayoutUrl,
             );
           } catch (e) {
             console.warn("[packing] JSON trong localStorage không parse được — dùng layout mặc định.", e);
@@ -407,7 +445,7 @@ export default function PackingPlayerClient() {
       window.removeEventListener("storage", onStorage);
       window.removeEventListener(PACKING_LAYOUT_SAVED_EVENT, onSaved);
     };
-  }, [persistHydrated, setLayout]);
+  }, [persistHydrated, setLayout, showMobileUi]);
 
   useEffect(() => {
     if (!persistHydrated) return;
@@ -494,7 +532,7 @@ export default function PackingPlayerClient() {
       setSingleItems((prev) => {
         const z = nextUserLayerZ(layout, [], prev, keyrambitItemsRef.current);
         const itemId = resolveSingleItemIdForWarehouseGroup(groupId);
-        const { width: sw, height: sh } = getSingleItemSizeForWarehouseGroup(groupId);
+        const { width: sw, height: sh } = itemSizeApiRef.current.getSingleItemSizeForWarehouseGroup(groupId);
         const st = groupId === "paper_box" ? initialPaperBoxStage() : undefined;
         const silverC = groupId === "silver_bag" ? emptySilverPacketContents() : undefined;
         const single: PackingTableSingleItem = {
@@ -568,7 +606,7 @@ export default function PackingPlayerClient() {
         const ox = (idx % 14) * 12;
         const oy = Math.floor(idx / 14) * 10;
         const itemId = resolveSingleItemIdForWarehouseGroup(groupId);
-        const { width: sw, height: sh } = getSingleItemSizeForWarehouseGroup(groupId);
+        const { width: sw, height: sh } = itemSizeApiRef.current.getSingleItemSizeForWarehouseGroup(groupId);
         const st = groupId === "paper_box" ? initialPaperBoxStage() : undefined;
         const silverC = groupId === "silver_bag" ? emptySilverPacketContents() : undefined;
         const single: PackingTableSingleItem = {
@@ -720,7 +758,7 @@ export default function PackingPlayerClient() {
           const lay = layoutRef.current;
           if (!lay) return prev;
           if (prev.some(isOrderShipLabelSingle)) return prev;
-          const { width: lw, height: lh } = getSingleItemSizePx("order_ship_label");
+          const { width: lw, height: lh } = itemSizeApiRef.current.getSingleItemSizePx("order_ship_label");
           const cx = assetSnap.x + assetSnap.width * 0.72;
           const cy = assetSnap.y + assetSnap.height * 0.38;
           const id = `order-label-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -753,8 +791,9 @@ export default function PackingPlayerClient() {
       warmingAssetId: w?.assetId ?? null,
       warmingProgress01: w ? Math.min(1, (Date.now() - w.startMs) / 3000) : 0,
       onPrinterTap: handlePrinterTap,
+      preferTapOnPrinter: showMobileUi,
     };
-  }, [printerWarmupTick, handlePrinterTap]);
+  }, [printerWarmupTick, handlePrinterTap, showMobileUi]);
 
   useEffect(() => {
     if (activeOrder != null) return;
@@ -875,7 +914,7 @@ export default function PackingPlayerClient() {
           .filter((s) => s.id !== bagId)
           .map((s) => {
             if (s.id !== draggedId) return s;
-            const geo = paperBoxGeometryAfterStageChange(
+            const geo = itemSizeApiRef.current.paperBoxGeometryAfterStageChange(
               bagItem.x,
               bagItem.y,
               bagItem.width,
@@ -902,7 +941,7 @@ export default function PackingPlayerClient() {
         setSingleItems((prev) =>
           prev.map((s) => {
             if (s.id !== draggedId) return s;
-            const geo = paperBoxGeometryAfterStageChange(
+            const geo = itemSizeApiRef.current.paperBoxGeometryAfterStageChange(
               asset.x,
               asset.y,
               asset.width,
@@ -941,7 +980,7 @@ export default function PackingPlayerClient() {
           .filter((s) => s.id !== draggedId)
           .map((s) => {
             if (s.id !== targetId) return s;
-            const geo = paperBoxGeometryAfterStageChange(s.x, s.y, s.width, s.height, nextStage);
+            const geo = itemSizeApiRef.current.paperBoxGeometryAfterStageChange(s.x, s.y, s.width, s.height, nextStage);
             return {
               ...s,
               ...geo,
@@ -990,7 +1029,7 @@ export default function PackingPlayerClient() {
         .filter((s) => s.id !== draggedId)
         .map((s) => {
           if (s.id !== targetId) return s;
-          const geo = paperBoxGeometryAfterStageChange(s.x, s.y, s.width, s.height, nextStage);
+            const geo = itemSizeApiRef.current.paperBoxGeometryAfterStageChange(s.x, s.y, s.width, s.height, nextStage);
           return {
             ...s,
             ...geo,
@@ -1102,7 +1141,7 @@ export default function PackingPlayerClient() {
       if (nextSt === null) return prev;
       return prev.map((s) => {
         if (s.id !== id) return s;
-        const geo = paperBoxGeometryAfterStageChange(s.x, s.y, s.width, s.height, nextSt);
+        const geo = itemSizeApiRef.current.paperBoxGeometryAfterStageChange(s.x, s.y, s.width, s.height, nextSt);
         return {
           ...s,
           ...geo,
@@ -1262,7 +1301,7 @@ export default function PackingPlayerClient() {
       const img = displaySrc || resolveProductImage(row.name, row.imageSrc || null) || "";
       setKeyrambitItems((prev) => {
         const z = nextUserLayerZ(layout, [], singleItemsRef.current, prev);
-        const { width, height } = getSingleItemSizePx("table_keyrambit");
+        const { width, height } = itemSizeApiRef.current.getSingleItemSizePx("table_keyrambit");
         const id = `kr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         return [
           ...prev,
@@ -1286,6 +1325,43 @@ export default function PackingPlayerClient() {
       });
     },
     [layout, resolveProductImage, size.w, size.h],
+  );
+
+  const handleKeyrambitTapCenter = useCallback(
+    (row: PlayerKeyrambitInventoryItem, displaySrc: string) => {
+      if (!layout) return;
+      const onTable = countKeyrambitOnTableById(keyrambitItemsRef.current, row.keyrambitId);
+      if (onTable >= row.quantity) return;
+      setKeyrambitWarehouseOpen(false);
+      const img = displaySrc || resolveProductImage(row.name, row.imageSrc || null) || "";
+      const cx = layout.stage.width / 2;
+      const cy = layout.stage.height / 2;
+      setKeyrambitItems((prev) => {
+        const z = nextUserLayerZ(layout, [], singleItemsRef.current, prev);
+        const { width, height } = itemSizeApiRef.current.getSingleItemSizePx("table_keyrambit");
+        const id = `kr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        return [
+          ...prev,
+          {
+            type: "keyrambit" as const,
+            id,
+            keyrambitId: row.keyrambitId,
+            name: row.name,
+            imageSrc: img,
+            x: cx - width / 2,
+            y: cy - height / 2,
+            width,
+            height,
+            rotation: 0,
+            zIndex: z,
+            rarity: row.rarity,
+            series: row.series,
+            quantity: 1 as const,
+          },
+        ];
+      });
+    },
+    [layout, resolveProductImage],
   );
 
   const dismissStackUxHint = useCallback(() => {
@@ -1523,6 +1599,8 @@ export default function PackingPlayerClient() {
             onClose={() => setKeyrambitWarehouseOpen(false)}
             rows={keyrambitWarehouseRows}
             onDragEndPlace={handleKeyrambitDrawerDrop}
+            placementMode={showMobileUi ? "tap-center" : "drag"}
+            onTapPlaceCenter={showMobileUi ? handleKeyrambitTapCenter : undefined}
           />
           <PackingOrdersDrawer
             open={ordersOpen}

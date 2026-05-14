@@ -10,9 +10,11 @@ export type PackingEditorPreset = {
 
 /** Default sizes are in stage pixels (1920×1080); tweak in editor after placing. */
 export const PACKING_EDITOR_PRESETS: readonly PackingEditorPreset[] = [
-  { label: "Background 1", src: `${MG}/background/background-1.png`, defaultWidth: 1920, defaultHeight: 1080 },
+  { label: "Background 1", src: `${MG}/background/background-1-mobile.png`, defaultWidth: 1920, defaultHeight: 1080 },
+  { label: "Background 1 (mobile)", src: `${MG}/background/background-1-mobile.png`, defaultWidth: 1080, defaultHeight: 1920 },
   { label: "Background 1 (alt file)", src: `${MG}/background/bacground-1.png`, defaultWidth: 1920, defaultHeight: 1080 },
   { label: "Desk 1 (full)", src: `${MG}/desk/desk-1/desk-1.png`, defaultWidth: 1680, defaultHeight: 520 },
+  { label: "Desk 1 (mobile file)", src: `${MG}/desk/desk-1/desk-1-mobile.png`, defaultWidth: 1680, defaultHeight: 520 },
   { label: "Desk 1 (assets copy)", src: "/assets/packing/desk/desk-1/desk-1.png", defaultWidth: 1680, defaultHeight: 520 },
   { label: "Top desk 1", src: `${MG}/desk/desk-1/topdesk-1.png`, defaultWidth: 1720, defaultHeight: 420 },
   { label: "Workstation desk 1", src: `${MG}/workstation/desk-1.png`, defaultWidth: 1400, defaultHeight: 480 },
