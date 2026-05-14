@@ -62,8 +62,19 @@ export const PACKING_LAYOUT_MOBILE_DEFAULT_URL = "/layouts/packing-layout-mobile
  */
 export const PACKING_LAYOUT_LOCALSTORAGE_KEY = "keyrambitvn:packing-layout-json-v1";
 
+/**
+ * JSON layout mobile do packing-editor-mobile ghi — tách khỏi bản desktop để `/packing` (mobile)
+ * không bị ghi đè bởi cùng key với editor desktop.
+ */
+export const PACKING_LAYOUT_MOBILE_LOCALSTORAGE_KEY = "keyrambitvn:packing-layout-json-mobile-v1";
+
 /** Dispatched on `window` after a successful preview persist (same-tab listener). */
 export const PACKING_LAYOUT_SAVED_EVENT = "keyrambitvn:packing-layout-saved";
+
+/** Stage dọc (chiều cao > chiều ngang) — dùng phân biệt layout mobile vs desktop trong store. */
+export function isPackingLayoutPortraitStage(l: PackingLayout): boolean {
+  return l.stage.height > l.stage.width;
+}
 
 /** True when the dev-only packing editor route is allowed (checked on the server). */
 export function isPackingEditorEnabled(): boolean {

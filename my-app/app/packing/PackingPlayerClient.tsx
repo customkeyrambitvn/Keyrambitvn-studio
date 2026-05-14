@@ -23,7 +23,9 @@ import {
   PACKING_LAYOUT_DEFAULT_URL,
   PACKING_LAYOUT_MOBILE_DEFAULT_URL,
   PACKING_LAYOUT_LOCALSTORAGE_KEY,
+  PACKING_LAYOUT_MOBILE_LOCALSTORAGE_KEY,
   PACKING_LAYOUT_SAVED_EVENT,
+  isPackingLayoutPortraitStage,
   parsePackingLayout,
   type PackingLayout,
   type PackingLayoutAsset,
@@ -398,29 +400,44 @@ export default function PackingPlayerClient() {
       }
     };
 
+    const parseLayoutFromLocalStorage = (key: string): PackingLayout | null => {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const json = JSON.parse(raw) as unknown;
+        return parsePackingLayout(json);
+      } catch {
+        return null;
+      }
+    };
+
     const load = async () => {
       const fromStore = usePackingSimulatorStore.getState().layout;
       if (fromStore) {
-        finish(fromStore, null);
-        return;
+        const storeMatchesUi =
+          showMobileUi ? isPackingLayoutPortraitStage(fromStore) : !isPackingLayoutPortraitStage(fromStore);
+        if (storeMatchesUi) {
+          finish(fromStore, null);
+          return;
+        }
       }
       try {
-        const raw = localStorage.getItem(PACKING_LAYOUT_LOCALSTORAGE_KEY);
-        if (raw) {
-          try {
-            const json = JSON.parse(raw) as unknown;
-            const p = parsePackingLayout(json);
-            if (p) {
-              finish(p, null);
-              return;
-            }
-            console.warn(
-              "[packing] Có dữ liệu trong localStorage nhưng không đúng schema (parsePackingLayout trả null).",
-              "Kiểm tra version, assets, số. Dùng layout mặc định từ",
-              defaultLayoutUrl,
-            );
-          } catch (e) {
-            console.warn("[packing] JSON trong localStorage không parse được — dùng layout mặc định.", e);
+        if (showMobileUi) {
+          const fromMobileKey = parseLayoutFromLocalStorage(PACKING_LAYOUT_MOBILE_LOCALSTORAGE_KEY);
+          if (fromMobileKey) {
+            finish(fromMobileKey, null);
+            return;
+          }
+          const fromGeneric = parseLayoutFromLocalStorage(PACKING_LAYOUT_LOCALSTORAGE_KEY);
+          if (fromGeneric && isPackingLayoutPortraitStage(fromGeneric)) {
+            finish(fromGeneric, null);
+            return;
+          }
+        } else {
+          const fromGeneric = parseLayoutFromLocalStorage(PACKING_LAYOUT_LOCALSTORAGE_KEY);
+          if (fromGeneric && !isPackingLayoutPortraitStage(fromGeneric)) {
+            finish(fromGeneric, null);
+            return;
           }
         }
       } catch (e) {
@@ -433,7 +450,12 @@ export default function PackingPlayerClient() {
     void load();
 
     const onStorage = (e: StorageEvent) => {
-      if (e.key === PACKING_LAYOUT_LOCALSTORAGE_KEY || e.key === null) void load();
+      if (
+        e.key === PACKING_LAYOUT_LOCALSTORAGE_KEY ||
+        e.key === PACKING_LAYOUT_MOBILE_LOCALSTORAGE_KEY ||
+        e.key === null
+      )
+        void load();
     };
     const onSaved = () => void load();
 

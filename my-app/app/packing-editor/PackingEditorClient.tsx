@@ -8,6 +8,7 @@ import { PackingCropPanel } from "./PackingCropPanel";
 import {
   PACKING_LAYOUT_DEFAULT_URL,
   PACKING_LAYOUT_LOCALSTORAGE_KEY,
+  PACKING_LAYOUT_MOBILE_LOCALSTORAGE_KEY,
   PACKING_LAYOUT_SAVED_EVENT,
   PACKING_TILT_MAX,
   PACKING_TILT_MIN,
@@ -365,15 +366,20 @@ export default function PackingEditorClient({
   const saveJson = useCallback(async () => {
     if (!layout) return;
     const text = JSON.stringify(layout, null, 2);
+    const isMobileEditor = editorVariant === "mobile";
+    const lsKey = isMobileEditor ? PACKING_LAYOUT_MOBILE_LOCALSTORAGE_KEY : PACKING_LAYOUT_LOCALSTORAGE_KEY;
     try {
-      localStorage.setItem(PACKING_LAYOUT_LOCALSTORAGE_KEY, text);
+      localStorage.setItem(lsKey, text);
       window.dispatchEvent(new Event(PACKING_LAYOUT_SAVED_EVENT));
     } catch (e) {
       console.warn("Could not save layout to localStorage (preview /packing)", e);
     }
 
+    const apiPath = isMobileEditor ? "/api/packing-layout-mobile" : "/api/packing-layout-default";
+    const fileLabel = isMobileEditor ? "packing-layout-mobile.json" : "packing-default.json";
+
     try {
-      const r = await fetch("/api/packing-layout-default", {
+      const r = await fetch(apiPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: text,
@@ -381,24 +387,24 @@ export default function PackingEditorClient({
       const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!r.ok || !j.ok) {
         window.alert(
-          `Đã lưu localStorage + tải file.\n\nGhi layout mặc định (packing-default.json) thất bại: ${j.error ?? r.statusText}`,
+          `Đã lưu localStorage + tải file.\n\nGhi ${fileLabel} thất bại: ${j.error ?? r.statusText}`,
         );
       } else {
-        console.info("[packing-editor] Đã ghi public/layouts/packing-default.json");
+        console.info(`[packing-editor] Đã ghi public/layouts/${fileLabel}`);
       }
     } catch (e) {
       window.alert(
-        `Đã lưu localStorage + tải file.\n\nKhông gọi được API ghi mặc định: ${e instanceof Error ? e.message : String(e)}`,
+        `Đã lưu localStorage + tải file.\n\nKhông gọi được API ghi ${fileLabel}: ${e instanceof Error ? e.message : String(e)}`,
       );
     }
 
     const blob = new Blob([text], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "packing-layout.json";
+    a.download = isMobileEditor ? "packing-layout-mobile.json" : "packing-layout.json";
     a.click();
     URL.revokeObjectURL(a.href);
-  }, [layout]);
+  }, [layout, editorVariant]);
 
   const onPickFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -459,7 +465,11 @@ export default function PackingEditorClient({
             type="button"
             disabled={!layout}
             onClick={saveJson}
-            title="localStorage + tải JSON + ghi public/layouts/packing-default.json (dev hoặc PACKING_WRITE_DEFAULT_TO_DISK=true)"
+            title={
+              editorVariant === "mobile"
+                ? "localStorage (mobile) + tải JSON + ghi packing-layout-mobile.json (dev hoặc PACKING_WRITE_DEFAULT_TO_DISK=true)"
+                : "localStorage + tải JSON + ghi packing-default.json (dev hoặc PACKING_WRITE_DEFAULT_TO_DISK=true)"
+            }
             className="rounded border border-cyan-500/50 bg-cyan-500/10 px-2 py-1 text-[11px] text-cyan-100 disabled:opacity-40"
           >
             Save layout
