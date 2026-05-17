@@ -49,7 +49,7 @@ export function FusionAnimationModal({
   const sessionRef = useRef(0);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
-  const { play } = useSfx();
+  const { playFusion } = useSfx();
   const lastSfxPhaseRef = useRef<Phase>("idle");
 
   const clearTimers = () => {
@@ -132,11 +132,11 @@ export function FusionAnimationModal({
 
   useEffect(() => {
     if (phase === lastSfxPhaseRef.current) return;
-    if (phase === "slots" && open) play("fusion_start");
-    if (phase === "success") play("fusion_success");
-    if (phase === "fail") play("fusion_fail");
+    if (phase === "slots" && open) playFusion("start");
+    if (phase === "success") playFusion("success");
+    if (phase === "fail") playFusion("fail");
     lastSfxPhaseRef.current = phase;
-  }, [phase, open, play]);
+  }, [phase, open, playFusion]);
 
   const skip = () => {
     const res = onCommit();

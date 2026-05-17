@@ -47,7 +47,7 @@ export function InventoryArmory({
   normalizeRarity,
   rarityToClassName,
 }: InventoryArmoryProps) {
-  const { play } = useSfx();
+  const { playClick, playItemSelect } = useSfx();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [transitionKey, setTransitionKey] = useState(0);
   const [sortMode, setSortMode] = useState<InventorySortMode>(DEFAULT_INVENTORY_SORT);
@@ -104,11 +104,18 @@ export function InventoryArmory({
   const handleSelect = useCallback(
     (id: string) => {
       if (id === selectedId) return;
-      play("ui_click", 0.55);
+      const item = items.find((i) => i.id === id);
+      if (item) {
+        const rarity = normalizeRarity(item.rarity);
+        playItemSelect(rarity, {
+          spatial: "center",
+          rarityClassName: rarityToClassName(rarity),
+        });
+      }
       setSelectedId(id);
       setTransitionKey((k) => k + 1);
     },
-    [selectedId, play]
+    [selectedId, items, normalizeRarity, rarityToClassName, playItemSelect]
   );
 
   return (
@@ -123,7 +130,7 @@ export function InventoryArmory({
                 value={sortMode}
                 onChange={(e) => {
                   setSortMode(e.target.value as InventorySortMode);
-                  play("ui_click", 0.4);
+                  playClick("side", 0.4);
                 }}
                 aria-label="Sắp xếp kệ lưu trữ"
                 title={INVENTORY_SORT_OPTIONS.find((o) => o.value === sortMode)?.label}

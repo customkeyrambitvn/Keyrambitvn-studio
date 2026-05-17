@@ -31,17 +31,17 @@ export function MotionButton({
   disabled,
   ...rest
 }: MotionButtonProps) {
-  const { play } = useSfx();
+  const { playHover, playClick } = useSfx();
   const cn = [variantClass[variant], className].filter(Boolean).join(" ");
 
   const handleEnter = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (!disabled) play("ui_hover_soft", 0.85);
+    if (!disabled) playHover("ui", "side", 0.85);
     onPointerEnter?.(e);
   };
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (!disabled) {
-      play("ui_click");
+      playClick("side");
     }
     onClick?.(e);
   };
@@ -53,7 +53,7 @@ export function MotionButton({
         className={`${cn}${disabled ? " pointer-events-none opacity-45" : ""}`}
         aria-disabled={disabled || undefined}
         onClick={(e) => {
-          if (!disabled) play("ui_click");
+          if (!disabled) playClick("side");
           onClick?.(e as unknown as React.MouseEvent<HTMLButtonElement>);
         }}
         {...(rest as object)}

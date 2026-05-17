@@ -1,6 +1,6 @@
 "use client";
 
-import { playSfx, primeSfxAudio } from "@/app/lib/sfx/sfx-manager";
+import { playClick, primeSfxAudio } from "@/app/lib/sfx/sfx-manager";
 import { useSfx } from "../contexts/SfxContext";
 
 /** Global mute toggle for UI SFX. */
@@ -15,12 +15,8 @@ export function SfxMuteToggle() {
         setMuted(next);
         if (!next) {
           primeSfxAudio();
-          playSfx("ui_click", 1);
+          playClick("side", 1);
         }
-      }}
-      onPointerDown={(e) => {
-        if (e.button !== 0) return;
-        if (!muted) primeSfxAudio();
       }}
       className="sfx-mute-toggle"
       aria-pressed={muted}

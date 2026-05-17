@@ -33,7 +33,7 @@ export function InventoryMobileCarousel({
   rarityToClassName,
   onSelect,
 }: InventoryMobileCarouselProps) {
-  const { play } = useSfx();
+  const { playClick } = useSfx();
   const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   useEffect(() => {
@@ -53,7 +53,7 @@ export function InventoryMobileCarousel({
               value={sortMode}
               onChange={(e) => {
                 onSortChange(e.target.value as InventorySortMode);
-                play("ui_click", 0.4);
+                  playClick("side", 0.4);
               }}
               aria-label="Sắp xếp kệ lưu trữ"
               title={INVENTORY_SORT_OPTIONS.find((o) => o.value === sortMode)?.label}

@@ -104,7 +104,7 @@ function openBlindBox(boxName: string): InventoryItem {
 
 export default function Home() {
   const router = useRouter();
-  const { play } = useSfx();
+  const { playClick, playBoxOpen, playBoxFlash, playBoxRevealFinishOnly, playToast, playModalClose } = useSfx();
   const { saveInventory } = useInventoryPersist();
   const [activeBox, setActiveBox] = useState<BoxCard | null>(null);
   const [isOpening, setIsOpening] = useState(false);
@@ -199,7 +199,7 @@ export default function Home() {
     draggingRef.current = true;
     setIsTearPointerDown(true);
     setOpeningPhase("pouch-tearing");
-    play("ui_click", 0.7);
+    playClick("center", 0.7);
     updateTearFromClientX(e.clientX);
   };
 
@@ -235,7 +235,7 @@ export default function Home() {
     lastOpeningSfxRef.current = null;
     setOpeningPhase("pouch-ready");
     setIsOpening(true);
-    play("box_open");
+    playBoxOpen(1);
   };
 
   const closeReveal = () => {
@@ -255,8 +255,8 @@ export default function Home() {
 
   const showInventoryToast = useCallback(() => {
     setToastMessage("Đã thêm vào kho đồ");
-    play("toast");
-  }, [play]);
+    playToast();
+  }, [playToast]);
 
   const saveRevealedToInventory = useCallback((): boolean => {
     if (!revealedItem) return false;
@@ -293,7 +293,7 @@ export default function Home() {
   };
 
   const confirmAbandonReveal = () => {
-    play("modal_close");
+    playModalClose();
     setShowAbandonConfirm(false);
     closeReveal();
   };
@@ -309,10 +309,12 @@ export default function Home() {
 
   useEffect(() => {
     if (!openingPhase || openingPhase === lastOpeningSfxRef.current) return;
-    if (openingPhase === "flash") play("reveal_flash");
-    if (openingPhase === "revealed") play("item_reveal", 0.9);
+    if (openingPhase === "flash") playBoxFlash(1);
+    if (openingPhase === "revealed" && revealedItem) {
+      playBoxRevealFinishOnly(revealedItem.rarity, 0.95);
+    }
     lastOpeningSfxRef.current = openingPhase;
-  }, [openingPhase, play]);
+  }, [openingPhase, revealedItem, playBoxFlash, playBoxRevealFinishOnly]);
 
 
 
@@ -402,7 +404,7 @@ export default function Home() {
         <div
           className="store-modal-backdrop z-[60]"
           onClick={() => {
-            play("modal_close");
+            playModalClose();
             setShowAbandonConfirm(false);
           }}
           role="presentation"
@@ -423,7 +425,7 @@ export default function Home() {
                 type="button"
                 variant="secondary"
                 onClick={() => {
-                  play("modal_close");
+                  playModalClose();
                   setShowAbandonConfirm(false);
                 }}
               >

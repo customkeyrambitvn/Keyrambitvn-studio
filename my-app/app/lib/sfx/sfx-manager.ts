@@ -1,51 +1,39 @@
-import type { SfxId } from "./types";
+import {
+  playBoxOpenSequence,
+  playBoxRevealFinish,
+  playSfxEvent,
+  primeEngine,
+  setEngineMasterVolume,
+  startAmbientLoop,
+  stopAmbientLoop,
+} from "./sfx-engine";
+import { rarityToSfxTier } from "./rarity-tier";
+import type {
+  SfxEvent,
+  SfxHoverKind,
+  SfxId,
+  SfxRarityTier,
+  SfxSpatial,
+} from "./types";
 
-const SFX_SRC: Record<SfxId, string> = {
-  ui_hover_soft: "/sfx/ui_hover_soft.wav",
-  ui_click: "/sfx/ui_click.wav",
-  box_open: "/sfx/box_open.wav",
-  reveal_flash: "/sfx/reveal_flash.wav",
-  item_reveal: "/sfx/item_reveal.wav",
-  fusion_start: "/sfx/fusion_start.wav",
-  fusion_success: "/sfx/fusion_success.wav",
-  fusion_fail: "/sfx/fusion_fail.wav",
-  toast: "/sfx/toast.wav",
-  modal_close: "/sfx/modal_close.wav",
-};
+export type { SfxEvent, SfxHoverKind, SfxId, SfxRarityTier, SfxSpatial };
+export { rarityToSfxTier } from "./rarity-tier";
 
-const COOLDOWN_MS: Partial<Record<SfxId, number>> = {
-  ui_hover_soft: 120,
-  ui_click: 80,
-  toast: 400,
-};
-
-const DEFAULT_VOLUME = 0.85;
+const DEFAULT_VOLUME = 0.72;
 
 type SfxState = {
   muted: boolean;
   volume: number;
+  ambient: boolean;
   initialized: boolean;
-  unlocked: boolean;
 };
 
 const state: SfxState = {
   muted: false,
   volume: DEFAULT_VOLUME,
+  ambient: true,
   initialized: false,
-  unlocked: false,
 };
-
-const resolvedSrc = new Map<SfxId, string>();
-const lastPlayed = new Map<SfxId, number>();
-
-function sfxUrl(relativePath: string): string {
-  if (typeof window === "undefined") return relativePath;
-  try {
-    return new URL(relativePath, window.location.href).href;
-  } catch {
-    return relativePath;
-  }
-}
 
 function readStoredMute(): boolean {
   if (typeof window === "undefined") return false;
@@ -60,76 +48,59 @@ function readStoredVolume(): number {
   if (typeof window === "undefined") return DEFAULT_VOLUME;
   try {
     const v = Number(window.localStorage.getItem("keyrambit-sfx-volume"));
-    if (!Number.isFinite(v)) return DEFAULT_VOLUME;
-    return Math.max(0, Math.min(1, v));
+    return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : DEFAULT_VOLUME;
   } catch {
     return DEFAULT_VOLUME;
   }
 }
 
-function logPlayError(id: SfxId, err: unknown) {
-  const message = err instanceof Error ? err.message : String(err);
-  console.warn(
-    `[sfx] "${id}" failed: ${message}. Muted=${state.muted} volume=${state.volume}. ` +
-      "Click the page, ensure the speaker icon is ON, then try: window.__sfxTest()"
-  );
+function readStoredAmbient(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return window.localStorage.getItem("keyrambit-sfx-ambient") !== "0";
+  } catch {
+    return true;
+  }
 }
 
-function attachDevTestHook() {
-  if (process.env.NODE_ENV !== "development" || typeof window === "undefined") return;
-  const w = window as Window & { __sfxTest?: () => void; __sfxUnmute?: () => void };
-  w.__sfxTest = () => {
-    state.muted = false;
-    state.unlocked = true;
-    try {
-      window.localStorage.setItem("keyrambit-sfx-muted", "0");
-    } catch {
-      /* ignore */
-    }
-    playSfx("ui_click", 1);
-  };
-  w.__sfxUnmute = () => {
-    setSfxMuted(false);
-    state.unlocked = true;
-  };
+function syncAmbient() {
+  if (state.muted || !state.ambient || state.volume < 0.001) {
+    stopAmbientLoop();
+    return;
+  }
+  startAmbientLoop(state.volume);
 }
 
 export function initSfxManager() {
   if (typeof window === "undefined" || state.initialized) return;
   state.muted = readStoredMute();
   state.volume = readStoredVolume();
-
-  if (state.volume <= 0) {
-    state.volume = DEFAULT_VOLUME;
-  }
-
-  (Object.keys(SFX_SRC) as SfxId[]).forEach((id) => {
-    resolvedSrc.set(id, sfxUrl(SFX_SRC[id]));
-  });
-
+  state.ambient = readStoredAmbient();
+  setEngineMasterVolume(state.volume);
   state.initialized = true;
-  attachDevTestHook();
+
+  if (process.env.NODE_ENV === "development") {
+    const w = window as Window & { __sfxTest?: () => void; __sfxUnmute?: () => void };
+    w.__sfxTest = () => {
+      state.muted = false;
+      setSfxMuted(false);
+      primeSfxAudio();
+      playClick();
+    };
+    w.__sfxUnmute = () => setSfxMuted(false);
+  }
 }
 
-/** Call on first user gesture — unlocks autoplay for HTML5 audio. */
-export function primeSfxAudio(): void {
+export function primeSfxAudio() {
   if (typeof window === "undefined") return;
   initSfxManager();
   if (state.muted) return;
-
-  state.unlocked = true;
-
-  const src = resolvedSrc.get("ui_click");
-  if (!src) return;
-
-  const warm = new Audio(src);
-  warm.volume = Math.min(0.2, state.volume);
-  void warm.play().catch(() => {
-    /* retry on next click */
-  });
+  primeEngine();
+  playSfxEvent({ type: "hover", kind: "ui", spatial: "side" }, state.volume * 0.15);
+  syncAmbient();
 }
 
-export function resumeSfxAudioContextSync(): void {
+export function resumeSfxAudioContextSync() {
   primeSfxAudio();
 }
 
@@ -146,6 +117,10 @@ export function getSfxVolume() {
   return state.volume;
 }
 
+export function getSfxAmbientEnabled() {
+  return state.ambient;
+}
+
 export function setSfxMuted(muted: boolean) {
   state.muted = muted;
   try {
@@ -153,74 +128,108 @@ export function setSfxMuted(muted: boolean) {
   } catch {
     /* ignore */
   }
-  if (!muted) {
-    state.unlocked = true;
+  if (muted) stopAmbientLoop();
+  else {
     primeSfxAudio();
+    syncAmbient();
   }
 }
 
 export function setSfxVolume(volume: number) {
   const v = Math.max(0, Math.min(1, volume));
   state.volume = v;
+  setEngineMasterVolume(v);
   try {
     window.localStorage.setItem("keyrambit-sfx-volume", String(v));
   } catch {
     /* ignore */
   }
+  syncAmbient();
 }
 
-function createSound(id: SfxId): HTMLAudioElement | null {
-  const src = resolvedSrc.get(id);
-  if (!src) return null;
-  const sound = new Audio(src);
-  sound.preload = "auto";
-  return sound;
-}
-
-function playAudio(id: SfxId, volumeScale: number) {
-  const sound = createSound(id);
-  if (!sound) return;
-
-  const vol = Math.max(0, Math.min(1, state.volume * volumeScale));
-  sound.volume = vol;
-
-  const attempt = () => {
-    sound.currentTime = 0;
-    const p = sound.play();
-    if (p !== undefined) {
-      void p.catch((err) => logPlayError(id, err));
-    }
-  };
-
-  if (sound.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
-    attempt();
-    return;
+export function setSfxAmbientEnabled(enabled: boolean) {
+  state.ambient = enabled;
+  try {
+    window.localStorage.setItem("keyrambit-sfx-ambient", enabled ? "1" : "0");
+  } catch {
+    /* ignore */
   }
-
-  sound.addEventListener("canplaythrough", attempt, { once: true });
-  sound.addEventListener("error", () => {
-    logPlayError(id, new Error(`Could not load ${sound.src}`));
-  }, { once: true });
-  sound.load();
+  syncAmbient();
 }
 
-/** Play UI sound with anti-spam cooldown. */
-export function playSfx(id: SfxId, volumeScale = 1) {
+export function playSfxEventBus(event: SfxEvent, volumeScale = 1) {
   if (typeof window === "undefined") return;
   if (!state.initialized) initSfxManager();
   if (state.muted) return;
+  primeEngine();
+  playSfxEvent(event, state.volume * volumeScale);
+}
 
-  if (!state.unlocked) {
-    state.unlocked = true;
+/** @deprecated Use playSfxEventBus — kept for existing call sites. */
+export function playSfx(id: SfxId, volumeScale = 1) {
+  playSfxEventBus({ type: "legacy", id }, volumeScale);
+}
+
+export function playHover(kind: SfxHoverKind, spatial: SfxSpatial = "side", scale = 1) {
+  playSfxEventBus({ type: "hover", kind, spatial }, scale);
+}
+
+export function playClick(spatial: SfxSpatial = "side", scale = 1) {
+  playSfxEventBus({ type: "click", spatial }, scale);
+}
+
+export function playItemSelect(rarity: string, options?: { spatial?: SfxSpatial; selected?: boolean }) {
+  const tier = rarityToSfxTier(rarity);
+  const spatial = options?.spatial ?? (options?.selected ? "center" : "side");
+  if (options?.selected) {
+    playHover("selected", spatial, 0.9);
   }
+  playSfxEventBus({ type: "select", tier, spatial: spatial === "center" ? "center" : "side" });
+}
 
-  const now = Date.now();
-  const cd = COOLDOWN_MS[id];
-  if (cd != null) {
-    const last = lastPlayed.get(id) ?? 0;
-    if (now - last < cd) return;
-    lastPlayed.set(id, now);
-  }
+export function playRarityReveal(rarity: string, spatial: SfxSpatial = "center") {
+  playSfxEventBus({
+    type: "rarity_finish",
+    tier: rarityToSfxTier(rarity),
+    spatial,
+  });
+}
 
-  playAudio(id, volumeScale);
+export function playBoxOpen(scale = 1) {
+  if (state.muted) return;
+  primeEngine();
+  playBoxOpenSequence(state.volume * scale);
+}
+
+export function playBoxFlash(scale = 1) {
+  playSfxEventBus({ type: "box", step: "flash" }, scale);
+}
+
+export function playBoxRevealFinishOnly(rarity: string, scale = 1) {
+  playSfxEventBus(
+    { type: "box", step: "finish", tier: rarityToSfxTier(rarity) },
+    scale
+  );
+}
+
+export function playBoxReveal(rarity: string, scale = 1) {
+  if (state.muted) return;
+  primeEngine();
+  playBoxRevealFinish(rarityToSfxTier(rarity), state.volume * scale);
+}
+
+export function playFusion(step: "start" | "success" | "fail", scale = 1) {
+  playSfxEventBus({ type: "fusion", step }, scale);
+}
+
+export function playToast(scale = 1) {
+  playSfxEventBus({ type: "toast" }, scale);
+}
+
+export function playModalClose(scale = 1) {
+  playSfxEventBus({ type: "modal_close" }, scale);
+}
+
+export function refreshAmbient() {
+  syncAmbient();
 }

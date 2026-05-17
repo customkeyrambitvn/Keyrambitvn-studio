@@ -54,7 +54,7 @@ export function RevealCard({
   onAbandon,
   footerExtra,
 }: RevealCardProps) {
-  const { play } = useSfx();
+  const { playClick } = useSfx();
   const mod = rarityToFloatMod(rarity);
 
   return (
@@ -113,7 +113,7 @@ export function RevealCard({
         <button
           type="button"
           onClick={() => {
-            play("ui_click");
+            playClick("center");
             onViewInventory();
           }}
           className="reveal-card__link"
@@ -124,7 +124,7 @@ export function RevealCard({
         <button
           type="button"
           onClick={() => {
-            play("ui_click");
+            playClick("center");
             onAbandon();
           }}
           className="reveal-card__danger"

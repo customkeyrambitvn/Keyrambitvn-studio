@@ -2,7 +2,14 @@
 
 import Image from "next/image";
 import { useSfx } from "@/app/contexts/SfxContext";
+import { rarityToSfxTier } from "@/app/lib/sfx/rarity-tier";
+import type { SfxHoverKind } from "@/app/lib/sfx/types";
 import { useResolvedProductImage } from "../ProductImageContext";
+
+function slotHoverKind(selected: boolean, rarityClassName: string): SfxHoverKind {
+  if (selected) return "selected";
+  return rarityToSfxTier(rarityClassName) === "common" ? "ui" : "rarity";
+}
 
 type InventoryRackSlotProps = {
   id: string;
@@ -25,14 +32,17 @@ export function InventoryRackSlot({
   returning,
   onSelect,
 }: InventoryRackSlotProps) {
-  const { play } = useSfx();
+  const { playHover } = useSfx();
   const resolved = useResolvedProductImage(name, image);
 
   return (
     <button
       type="button"
       onClick={onSelect}
-      onMouseEnter={() => play("ui_hover_soft", 0.35)}
+      onMouseEnter={() => {
+        const kind = slotHoverKind(selected, rarityClassName);
+        playHover(kind, "side", kind === "ui" ? 0.85 : 0.7);
+      }}
       className={[
         "inventory-rack__slot",
         rarityClassName,
