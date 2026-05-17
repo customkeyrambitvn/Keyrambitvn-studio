@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { BrandHeaderBar } from "../components/BrandHeaderBar";
-import { BrandWatermark } from "../components/BrandWatermark";
+import { CompactPageTitleBar } from "../components/CompactPageTitleBar";
+import { CompactTopNav } from "../components/CompactTopNav";
 import { FusionAnimationModal, type FusionAnimResult, type FusionAnimSnapshot } from "../components/FusionAnimationModal";
-import { MainNavWithAuth } from "../components/MainNavWithAuth";
+import { FusionChamber } from "../components/ceremony";
+import { MotionButton } from "../components/motion";
+import { StoreButton, StoreModal, StorePanel, StoreShell } from "../components/store";
 import { ProductImageBox } from "../components/ProductImageBox";
 import { useInventoryPersist } from "../hooks/useInventoryPersist";
 import {
@@ -268,41 +270,33 @@ export default function FusionPage() {
     mode === "normal" ? NORMAL_RECIPES[normalRecipe].output : highTarget;
 
   return (
-    <main className="relative flex min-h-screen flex-1 flex-col bg-[#06070f] text-zinc-100">
-      <BrandWatermark />
-      <div className="relative z-10 mx-auto h-full w-full flex-1 px-4 py-5 sm:px-6">
-        <BrandHeaderBar />
-        <MainNavWithAuth />
+    <StoreShell contentClassName="app-page--compact min-h-[100dvh] flex flex-1 flex-col">
+      <div className="app-page__chrome shrink-0">
+        <CompactTopNav />
+      </div>
+      <div className="app-page__workspace">
+        <CompactPageTitleBar
+          kicker="Fusion lab"
+          title="Dung Hợp"
+          description="Ghép vật phẩm từ kho để thử độ hiếm cao hơn."
+        />
 
-        <header className="mb-5 rounded-2xl border border-fuchsia-500/30 bg-[#0b1020]/85 p-4 shadow-[0_0_40px_rgba(180,80,255,0.12)] backdrop-blur">
-          <p className="text-xs uppercase tracking-[0.25em] text-fuchsia-300">Fusion Lab</p>
-          <h1 className="mt-2 text-2xl font-semibold">Dung Hợp</h1>
-        </header>
-
-        <div className="mb-4 flex gap-1 rounded-xl border border-zinc-700/80 bg-[#0a0f1d] p-1">
-          <button
-            type="button"
-            onClick={() => setMode("normal")}
-            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition sm:text-base ${
-              mode === "normal"
-                ? "bg-fuchsia-500/20 text-fuchsia-100 ring-1 ring-fuchsia-400/40"
-                : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
-            }`}
-          >
-            Thường (tối đa 5)
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("high")}
-            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition sm:text-base ${
-              mode === "high"
-                ? "bg-fuchsia-500/20 text-fuchsia-100 ring-1 ring-fuchsia-400/40"
-                : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
-            }`}
-          >
-            Cao cấp (tối đa 10)
-          </button>
-        </div>
+        <div className="store-segment mb-4">
+        <button
+          type="button"
+          onClick={() => setMode("normal")}
+          className={`store-segment__btn${mode === "normal" ? " store-segment__btn--active" : ""}`}
+        >
+          Thường (tối đa 5)
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("high")}
+          className={`store-segment__btn${mode === "high" ? " store-segment__btn--active" : ""}`}
+        >
+          Cao cấp (tối đa 10)
+        </button>
+      </div>
 
         {mode === "normal" ? (
           <div className="mb-4 flex flex-col gap-2">
@@ -313,11 +307,7 @@ export default function FusionPage() {
                   key={id}
                   type="button"
                   onClick={() => setNormalRecipe(id)}
-                  className={`rounded-lg border px-3 py-2 text-left text-sm transition ${
-                    normalRecipe === id
-                      ? "border-fuchsia-400/60 bg-fuchsia-500/15 text-fuchsia-100"
-                      : "border-zinc-600 bg-zinc-900/40 text-zinc-300 hover:border-zinc-500"
-                  }`}
+                  className={`store-btn store-btn--sm ${normalRecipe === id ? "store-btn--primary" : "store-btn--secondary"}`}
                 >
                   {NORMAL_RECIPES[id].label}
                 </button>
@@ -333,8 +323,8 @@ export default function FusionPage() {
                   key={t}
                   type="button"
                   onClick={() => setHighTarget(t)}
-                  className={`rounded-lg border px-3 py-2 text-sm transition ${rarityToClassName(t)} ${
-                    highTarget === t ? "ring-2 ring-fuchsia-400/50" : ""
+                  className={`store-btn store-btn--sm ${rarityToClassName(t)} ${
+                    highTarget === t ? "store-btn--primary" : "store-btn--secondary"
                   } ${GLITCH.has(t) ? "rarity-glitch-tier" : ""}`}
                 >
                   {t}
@@ -349,58 +339,54 @@ export default function FusionPage() {
           </div>
         )}
 
-        <div className="mb-2 flex items-baseline justify-between gap-3">
-          <p className="text-sm text-zinc-400">
-            Mục tiêu: <span className="font-medium text-zinc-200">{targetLabel}</span>
-          </p>
-          <p className="text-sm font-semibold text-fuchsia-300">Cơ hội: {successPercent.toFixed(1)}%</p>
-        </div>
-
-        {validationError && filledItems.length > 0 && (
-          <p className="mb-2 text-xs text-amber-400/90">{validationError}</p>
-        )}
-
-        <p className="mb-2 text-xs text-zinc-500">Ô dung hợp — bấm ô để trả vật phẩm ra</p>
-        <div
-          className={`mb-6 grid gap-2 ${maxSlots <= 5 ? "grid-cols-5 sm:grid-cols-5" : "grid-cols-5 sm:grid-cols-5 md:grid-cols-10"}`}
+        <FusionChamber
+          active={filledItems.length > 0}
+          chancePercent={successPercent}
+          targetLabel={targetLabel}
         >
-          {slots.map((s, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => s && clearSlot(i)}
-              className={`flex min-h-[4.5rem] flex-col items-center justify-center rounded-xl border border-dashed border-zinc-600 bg-zinc-900/30 p-1 text-center transition hover:border-zinc-500 sm:min-h-[5rem] ${
-                s ? "border-solid border-zinc-500 bg-[#0d1222]" : ""
-              }`}
-            >
-              {s ? (
-                <>
-                  <span className="line-clamp-2 text-[10px] font-medium leading-tight text-zinc-200 sm:text-xs">
-                    {s.name}
-                  </span>
-                  <span className={`mt-1 rounded px-1.5 py-0.5 text-[9px] ${rarityToClassName(s.rarity)}`}>
-                    {normalizeInventoryRarity(s.rarity)}
-                  </span>
-                </>
-              ) : (
-                <span className="text-[10px] text-zinc-600 sm:text-xs">
-                  {i + 1}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+          {validationError && filledItems.length > 0 && (
+            <p className="mb-2 text-xs text-amber-400/90">{validationError}</p>
+          )}
 
-        <button
-          type="button"
-          disabled={!canFuse || !!validationError}
-          onClick={openFuse}
-          className="mb-8 w-full rounded-xl border border-fuchsia-400/55 bg-fuchsia-500/15 py-3 text-base font-semibold text-fuchsia-100 shadow-[0_0_24px_rgba(192,38,211,0.15)] transition hover:bg-fuchsia-500/25 disabled:cursor-not-allowed disabled:opacity-45"
-        >
-          Dung Hợp
-        </button>
+          <p className="mb-2 text-xs text-zinc-500">Ô dung hợp — bấm ô để trả vật phẩm ra</p>
+          <div
+            className={`grid gap-2 ${maxSlots <= 5 ? "grid-cols-5 sm:grid-cols-5" : "grid-cols-5 sm:grid-cols-5 md:grid-cols-10"}`}
+          >
+            {slots.map((s, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => s && clearSlot(i)}
+                className={`store-slot sm:min-h-[5rem] ${s ? "store-slot--filled" : ""}`}
+              >
+                {s ? (
+                  <>
+                    <span className="line-clamp-2 text-[10px] font-medium leading-tight text-zinc-200 sm:text-xs">
+                      {s.name}
+                    </span>
+                    <span className={`mt-1 rounded px-1.5 py-0.5 text-[9px] ${rarityToClassName(s.rarity)}`}>
+                      {normalizeInventoryRarity(s.rarity)}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-[10px] text-zinc-600 sm:text-xs">{i + 1}</span>
+                )}
+              </button>
+            ))}
+          </div>
 
-        <section className="rounded-2xl border border-zinc-700/80 bg-[#0a0f1d]/80 p-4">
+          <MotionButton
+            type="button"
+            variant="action"
+            disabled={!canFuse || !!validationError}
+            onClick={openFuse}
+            className="mt-5 w-full"
+          >
+            Dung Hợp
+          </MotionButton>
+        </FusionChamber>
+
+        <StorePanel className="p-4">
           <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-zinc-400">
             Kho — chọn vật phẩm ({allowedPicker.length})
           </h2>
@@ -419,15 +405,18 @@ export default function FusionPage() {
                   type="button"
                   onClick={() => addToFirstEmpty(item)}
                   disabled={slots.every(Boolean)}
-                  className="flex w-full items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-900/40 p-3 text-left transition hover:border-fuchsia-500/40 hover:bg-zinc-900/70 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="store-panel store-panel--inset flex w-full items-center gap-3 p-3 text-left transition hover:border-[var(--store-border-strong)] disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-zinc-800/80">
+                  <div className="h-12 w-12 shrink-0 overflow-visible">
                     <ProductImageBox
                       name={item.name}
                       image={item.image}
                       rarity={normalizeInventoryRarity(item.rarity)}
                       compact
                       imageFit="contain"
+                      frameless
+                      auraPresentation="ritual"
+                      idleMotion={false}
                     />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -441,48 +430,26 @@ export default function FusionPage() {
               ))
             )}
           </div>
-        </section>
+        </StorePanel>
       </div>
 
-      {confirmOpen && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-[#03040a]/85 px-4 backdrop-blur-md"
-          role="presentation"
-          onClick={() => setConfirmOpen(false)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="fusion-confirm-title"
-            className="w-full max-w-md rounded-2xl border border-fuchsia-500/35 bg-[#0b1020]/95 p-5 shadow-[0_0_48px_rgba(192,38,211,0.2)]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p id="fusion-confirm-title" className="text-lg font-semibold text-zinc-100">
-              Xác nhận dung hợp
-            </p>
-            <p className="mt-3 text-sm leading-relaxed text-zinc-300">
-              Cơ hội thành công: <strong className="text-fuchsia-300">{successPercent.toFixed(1)}%</strong>. Mục tiêu:{" "}
-              <strong>{targetLabel}</strong>. Nếu thất bại, tất cả vật phẩm đã chọn sẽ mất.
-            </p>
-            <div className="mt-5 flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmOpen(false)}
-                className="rounded-lg border border-zinc-600 bg-zinc-900/60 px-4 py-2.5 text-sm text-zinc-200 hover:border-zinc-500"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={startFusionAfterConfirm}
-                className="rounded-lg border border-fuchsia-500/70 bg-fuchsia-950/40 px-4 py-2.5 text-sm font-medium text-fuchsia-100 hover:bg-fuchsia-950/60"
-              >
-                Xác nhận
-              </button>
-            </div>
-          </div>
+      <StoreModal open={confirmOpen} onClose={() => setConfirmOpen(false)} titleId="fusion-confirm-title">
+        <p id="fusion-confirm-title" className="text-lg font-semibold text-zinc-100">
+          Xác nhận dung hợp
+        </p>
+        <p className="mt-3 text-sm leading-relaxed text-zinc-300">
+          Cơ hội thành công: <strong className="text-[#f5e6b8]">{successPercent.toFixed(1)}%</strong>. Mục tiêu:{" "}
+          <strong>{targetLabel}</strong>. Nếu thất bại, tất cả vật phẩm đã chọn sẽ mất.
+        </p>
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
+          <StoreButton type="button" variant="secondary" onClick={() => setConfirmOpen(false)}>
+            Hủy
+          </StoreButton>
+          <StoreButton type="button" onClick={startFusionAfterConfirm}>
+            Xác nhận
+          </StoreButton>
         </div>
-      )}
+      </StoreModal>
 
       <FusionAnimationModal
         open={fusionAnimOpen}
@@ -494,26 +461,20 @@ export default function FusionPage() {
         onComplete={onFusionAnimationComplete}
       />
 
-      {result && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-[#03040a]/88 px-4 backdrop-blur-md"
-          role="presentation"
-          onClick={() => setResult(null)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="w-full max-w-sm rounded-2xl border border-zinc-600 bg-[#0b1020]/96 p-5 text-center shadow-[0_0_60px_rgba(0,0,0,0.5)]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {result.ok && result.item ? (
+      {result ? (
+        <StoreModal open onClose={() => setResult(null)} size="sm" className="text-center">
+          {result.ok && result.item ? (
               <>
                 <p className="text-lg font-semibold text-emerald-300">Dung hợp thành công</p>
-                <div className="mx-auto mt-4 max-w-[200px]">
+                <div className="mx-auto mt-4 max-w-[220px]">
                   <ProductImageBox
                     name={result.item.name}
                     image={result.item.image}
                     rarity={normalizeInventoryRarity(result.item.rarity)}
+                    frameless
+                    imageFit="contain"
+                    auraPresentation="showcase"
+                    interactiveAura
                   />
                 </div>
                 <h3 className="mt-3 text-xl font-bold text-zinc-50">{result.item.name}</h3>
@@ -525,16 +486,11 @@ export default function FusionPage() {
             ) : (
               <p className="text-lg font-semibold text-red-400">Dung hợp thất bại</p>
             )}
-            <button
-              type="button"
-              onClick={() => setResult(null)}
-              className="mt-6 w-full rounded-lg border border-zinc-500 bg-zinc-800/60 py-2.5 text-sm text-zinc-200 hover:bg-zinc-800"
-            >
-              Đóng
-            </button>
-          </div>
-        </div>
-      )}
-    </main>
+          <StoreButton type="button" variant="secondary" onClick={() => setResult(null)} className="mt-6 w-full">
+            Đóng
+          </StoreButton>
+        </StoreModal>
+      ) : null}
+    </StoreShell>
   );
 }

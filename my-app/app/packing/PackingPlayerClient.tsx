@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIsMobile } from "../hooks/useIsMobile";
-import { MainNavWithAuth } from "../components/MainNavWithAuth";
+import { CompactTopNav } from "../components/CompactTopNav";
 import { useProductImageResolve } from "../components/ProductImageContext";
 import { useInventoryPersist } from "../hooks/useInventoryPersist";
 import { PackingKonvaStage } from "./PackingKonvaStage";
@@ -14,7 +13,7 @@ import { PackingWarehouseDrawer } from "./PackingWarehouseDrawer";
 import { INVENTORY_CHANGED_EVENT, readLocalInventory, type InventoryItem } from "@/lib/inventory-local";
 import { clientToPackingLayoutCoords, packingLayoutRectToClientViewportRect } from "@/lib/packing-client-to-layout";
 import { aggregateKeyrambitInventory, countKeyrambitOnTableById } from "@/lib/packing-keyrambit-inventory";
-import { keyrambitIdFromName } from "@/lib/packing-keyrambit-id";
+import { embeddedKeyrambitStableId, keyrambitIdFromName } from "@/lib/packing-keyrambit-id";
 import { buildPackingWorkflowCompletion } from "@/lib/packing-workflow-completion";
 import type { PackingChecklistRow } from "@/lib/packing-order-checklist";
 import { buildPendingOrderQueue, generateOrder, getKeyrambitStock } from "@/lib/packing-order-generation";
@@ -850,7 +849,7 @@ export default function PackingPlayerClient() {
       const inFinishedPackage =
         finishedBox?.groupId === "paper_box" &&
         finishedBox.paperBoxSealedSilverContents?.keyrambit &&
-        keyrambitIdFromName(finishedBox.paperBoxSealedSilverContents.keyrambit.name) ===
+        embeddedKeyrambitStableId(finishedBox.paperBoxSealedSilverContents.keyrambit) ===
           orderSnapshot.requiredKeyrambitId
           ? 1
           : 0;
@@ -1207,10 +1206,11 @@ export default function PackingPlayerClient() {
   const handleKeyrambitItemMove = useCallback(
     (id: string, x: number, y: number, clientX?: number, clientY?: number) => {
       try {
+        /** Merge theo tọa độ bàn trước — tránh vùng thả thùng rác (client) nuốt thả chạm trên mobile. */
+        if (tryMergeKeyrambitOntoSilverPacket(id, x, y)) return;
         if (typeof clientX === "number" && typeof clientY === "number") {
           if (tryDisposeTableItemAtTrash(id, clientX, clientY)) return;
         }
-        if (tryMergeKeyrambitOntoSilverPacket(id, x, y)) return;
         setKeyrambitItems((prev) => prev.map((p) => (p.id === id ? { ...p, x, y } : p)));
       } finally {
         if (typeof clientX === "number") {
@@ -1488,16 +1488,8 @@ export default function PackingPlayerClient() {
       </div>
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col">
-        <div className="pointer-events-auto shrink-0 space-y-2 bg-[#03040a]/55 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-md sm:px-4">
-          <div className="flex items-center gap-2">
-            <Link
-              href="/"
-              className="shrink-0 rounded-lg border border-zinc-600/80 bg-[#0a0f1d]/90 px-2.5 py-1.5 text-[11px] font-medium text-zinc-200 transition hover:border-cyan-500/40 hover:text-cyan-100"
-            >
-              ← Store
-            </Link>
-          </div>
-          <MainNavWithAuth className="!mb-0" />
+        <div className="pointer-events-auto shrink-0 border-b border-[var(--store-border)] bg-[rgba(12,13,18,0.92)] px-2 py-1.5 pt-[max(0.35rem,env(safe-area-inset-top))] backdrop-blur-md sm:px-3">
+          <CompactTopNav />
         </div>
       </div>
 

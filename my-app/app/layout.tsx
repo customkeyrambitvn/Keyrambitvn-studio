@@ -1,13 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Be_Vietnam_Pro } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { GlobalAuthCorner } from "./components/GlobalAuthCorner";
 import { ProductImagesProvider } from "./components/ProductImageContext";
 import { AuthProvider } from "./contexts/AuthContext";
+import { SfxProvider } from "./contexts/SfxContext";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const beVietnam = Be_Vietnam_Pro({
+  variable: "--font-be-vietnam",
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
@@ -34,16 +38,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">
+    <html lang="vi" className={`${beVietnam.variable} ${geistMono.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col font-sans">
         <AuthProvider>
-          <ProductImagesProvider>
-            <GlobalAuthCorner />
-            {children}
-          </ProductImagesProvider>
+          <SfxProvider>
+            <ProductImagesProvider>
+              <GlobalAuthCorner />
+              {children}
+            </ProductImagesProvider>
+          </SfxProvider>
         </AuthProvider>
       </body>
     </html>

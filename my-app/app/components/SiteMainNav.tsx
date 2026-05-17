@@ -30,10 +30,7 @@ export function SiteMainNav() {
   }, []);
 
   return (
-    <nav
-      className="flex w-full min-w-0 flex-1 flex-wrap gap-1 rounded-xl border border-cyan-500/25 bg-[#0a0f1d]/90 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:flex-nowrap"
-      aria-label="Điều hướng chính"
-    >
+    <nav className="store-nav" aria-label="Điều hướng chính">
       {tabs.map((tab) => {
         const { href, label } = tab;
         const active = isActive(pathname, href);
@@ -44,11 +41,7 @@ export function SiteMainNav() {
             key={href}
             href={href}
             aria-current={active ? "page" : undefined}
-            className={`min-w-0 flex-1 rounded-lg px-2 py-2 text-center text-[11px] font-medium leading-tight transition sm:px-3 sm:text-sm ${
-              active
-                ? "border border-cyan-400/45 bg-cyan-500/15 text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.12)]"
-                : "border border-transparent text-zinc-400 hover:border-zinc-600 hover:bg-zinc-800/40 hover:text-zinc-200"
-            }`}
+            className={`store-nav__link${active ? " store-nav__link--active" : ""}`}
           >
             {displayLabel}
           </Link>

@@ -7,6 +7,8 @@ export const SILVER_PACKET_EMPTY_SRC = `${PKG}/silver-packet.png`;
 export const SILVER_PACKET_STUFF_INSIDE_SRC = `${PKG}/stuff-inside-silver-packet.png`;
 
 export type SilverPacketRestoreSnapshot = {
+  /** Ghi khi nhét từ bàn đóng hàng — checklist/finalize không phụ thuộc hoàn toàn vào chuỗi `name`. */
+  keyrambitId?: string;
   name: string;
   image?: string;
   rarity: string;
@@ -39,6 +41,7 @@ export function cloneSilverPacketContentsSnapshot(c: SilverPacketContents): Silv
             name: c.keyrambit.name,
             rarity: c.keyrambit.rarity,
             boxName: c.keyrambit.boxName,
+            ...(c.keyrambit.keyrambitId ? { keyrambitId: c.keyrambit.keyrambitId } : {}),
             ...(c.keyrambit.image ? { image: c.keyrambit.image } : {}),
           },
         }

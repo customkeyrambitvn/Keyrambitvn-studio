@@ -1,5 +1,5 @@
 import type { PaperBoxStage } from "./packing-paper-box-workflow";
-import { keyrambitIdFromName } from "./packing-keyrambit-id";
+import { embeddedKeyrambitStableId, keyrambitIdFromName } from "./packing-keyrambit-id";
 import type { PackingOrder } from "./packing-orders-types";
 import type { PackingTableKeyrambitItem, PackingTableSingleItem } from "./packing-warehouse";
 import { isOrderShipLabelSingle } from "./packing-printer-layout";
@@ -75,12 +75,12 @@ function listWrongKeyrambitEmbedded(singles: PackingTableSingleItem[], requiredK
   const out: string[] = [];
   for (const s of singles) {
     const c = s.silverPacketContents;
-    if (c?.keyrambit && keyrambitIdFromName(c.keyrambit.name) !== requiredKeyrambitId) {
+    if (c?.keyrambit && embeddedKeyrambitStableId(c.keyrambit) !== requiredKeyrambitId) {
       out.push(c.keyrambit.name);
     }
     if (s.groupId === "paper_box") {
       const b = s.paperBoxSealedSilverContents;
-      if (b?.keyrambit && keyrambitIdFromName(b.keyrambit.name) !== requiredKeyrambitId) {
+      if (b?.keyrambit && embeddedKeyrambitStableId(b.keyrambit) !== requiredKeyrambitId) {
         out.push(b.keyrambit.name);
       }
     }

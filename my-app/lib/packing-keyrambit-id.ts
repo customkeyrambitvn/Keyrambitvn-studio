@@ -8,3 +8,10 @@ export function keyrambitIdFromName(name: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
+
+/** Snapshot trong túi bạc/hộp: ưu `keyrambitId` lúc nhét (bàn → túi), fallback chuẩn hóa `name`. */
+export function embeddedKeyrambitStableId(snapshot: { keyrambitId?: string; name: string }): string {
+  const fromField = snapshot.keyrambitId?.trim();
+  if (fromField) return fromField;
+  return keyrambitIdFromName(snapshot.name);
+}

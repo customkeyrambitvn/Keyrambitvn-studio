@@ -1,13 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BrandHeaderBar } from "../components/BrandHeaderBar";
-import { MainNavWithAuth } from "../components/MainNavWithAuth";
-import { BrandWatermark } from "../components/BrandWatermark";
-import { ProductImageBox } from "../components/ProductImageBox";
+import {
+  InventoryArmory,
+  InventoryCompactTopNav,
+  InventoryHintBar,
+  InventoryTitleBar,
+} from "../components/inventory";
+import { StoreButton, StoreModal, StoreShell } from "../components/store";
 import { useInventoryPersist } from "../hooks/useInventoryPersist";
-import { productCategory } from "../lib/category";
 import {
   DEFAULT_INVENTORY_TITLE,
   INVENTORY_CHANGED_EVENT,
@@ -27,7 +28,6 @@ type InventoryItem = {
 };
 
 const RARITY_ORDER: Rarity[] = ["Thường", "Hiếm", "Siêu Hiếm", "Combo", "Săn Lùng", "Secret", "Rare Secret", "Super Secret"];
-const GLITCH_RARITIES = new Set<Rarity>(["Secret", "Rare Secret", "Super Secret"]);
 
 function normalizeRarity(rawRarity: string): Rarity {
   const value = rawRarity.trim();
@@ -137,156 +137,57 @@ export default function InventoryPage() {
   }, [items]);
 
   return (
-    <main className="relative min-h-screen bg-[#06070f] text-zinc-100">
-      <BrandWatermark />
-      <div className="relative z-10 mx-auto h-full w-full px-4 py-5 sm:px-6">
-        <BrandHeaderBar />
-        <MainNavWithAuth />
-        <header className="mb-5 rounded-2xl border border-purple-500/35 bg-[#0b1020]/85 p-4 shadow-[0_0_40px_rgba(150,80,255,0.15)] backdrop-blur">
-          <p className="text-xs uppercase tracking-[0.25em] text-violet-300">KHO KEYRAMBIT</p>
-          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                {isEditingTitle ? (
-                  <>
-                    <input
-                      ref={titleInputRef}
-                      type="text"
-                      value={titleDraft}
-                      onChange={(e) => setTitleDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") commitInventoryTitle();
-                        if (e.key === "Escape") cancelEditTitle();
-                      }}
-                      className="min-w-[12rem] flex-1 rounded-lg border border-violet-500/50 bg-[#0a0f1d] px-3 py-2 text-lg font-semibold text-zinc-100 outline-none ring-0 focus:border-violet-400 focus:shadow-[0_0_16px_rgba(167,139,250,0.35)] sm:max-w-md"
-                      aria-label="Tên kho"
-                    />
-                    <button
-                      type="button"
-                      onClick={commitInventoryTitle}
-                      className="rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200 transition hover:border-emerald-400 hover:bg-emerald-500/20"
-                    >
-                      Lưu
-                    </button>
-                    <button
-                      type="button"
-                      onClick={cancelEditTitle}
-                      className="rounded-lg border border-zinc-600 bg-zinc-900/50 px-3 py-2 text-sm text-zinc-300 transition hover:border-zinc-500"
-                    >
-                      Hủy
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <h1 className="text-2xl font-semibold">{inventoryTitle}</h1>
-                    <button
-                      type="button"
-                      onClick={startEditTitle}
-                      className="rounded-lg border border-violet-500/40 bg-violet-500/5 px-3 py-1.5 text-xs text-violet-200 transition hover:border-violet-400 hover:bg-violet-500/15"
-                    >
-                      Sửa tên
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-            <div className="flex flex-shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-              <Link
-                href="/"
-                className="rounded-full border border-violet-400/55 px-4 py-2 text-sm text-violet-200 transition hover:border-violet-200 hover:text-white"
-              >
-                Mở Box Keyrambit
-              </Link>
-              <button
-                type="button"
-                onClick={() => setShowClearConfirm(true)}
-                className="rounded-full border border-red-500/70 bg-red-950/40 px-4 py-2 text-sm text-red-200 shadow-[0_0_18px_rgba(239,68,68,0.25)] transition hover:border-red-400 hover:bg-red-950/60 hover:shadow-[0_0_22px_rgba(239,68,68,0.4)]"
-              >
-                Xóa toàn bộ kho
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <section className="mb-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-          {RARITY_ORDER.map((rarity) => (
-            <div
-              key={rarity}
-              className={`rounded-xl border border-zinc-700/80 bg-[#0a0f1d] p-3 text-center ${rarityToClassName(rarity)} ${
-                GLITCH_RARITIES.has(rarity) ? "rarity-glitch-tier" : ""
-              }`}
-            >
-              <p className="tracking-[0.08em]">{rarity}</p>
-              <p className="mt-1 text-base font-semibold">{rarityCounts[rarity]}</p>
-            </div>
-          ))}
-        </section>
-
-        {items.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-zinc-700 bg-[#0a0f1d] p-8 text-center text-zinc-400">
-            Chưa có vật phẩm nào. Mở thêm blind box để xây dựng kho đồ.
-          </div>
-        ) : (
-          <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {items.map((item) => {
-              const normalizedRarity = normalizeRarity(item.rarity);
-              return (
-                <article
-                  key={item.id}
-                  className={`overflow-visible rounded-xl border border-zinc-700 bg-[#0a0f1d] p-4 ${rarityToClassName(normalizedRarity)}`}
-                >
-                  <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">{item.boxName}</p>
-                  <div className="mt-3">
-                    <ProductImageBox name={item.name} image={item.image} rarity={normalizedRarity} />
-                  </div>
-                  <h2 className="mt-3 text-lg font-semibold">{item.name}</h2>
-                  <p className="text-sm text-zinc-400">{productCategory(item.name)}</p>
-                  <div className="mt-3 flex items-center justify-between text-xs">
-                    <span className={`rounded-full border px-3 py-1 ${rarityToClassName(normalizedRarity)}`}>{normalizedRarity}</span>
-                    <span className="text-zinc-400">{new Date(item.acquiredAt).toLocaleDateString()}</span>
-                  </div>
-                </article>
-              );
-            })}
-          </section>
-        )}
+    <StoreShell contentClassName="app-page--compact inventory-page flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col overflow-hidden">
+      <div className="inventory-page__chrome shrink-0">
+        <InventoryCompactTopNav />
       </div>
 
-      {showClearConfirm && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-[#03040a]/75 px-4 backdrop-blur-md"
-          onClick={() => setShowClearConfirm(false)}
-          role="presentation"
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="clear-inventory-title"
-            className="w-full max-w-md rounded-2xl border border-red-500/35 bg-[#0b1020]/95 p-5 shadow-[0_0_48px_rgba(239,68,68,0.2),0_0_80px_rgba(0,0,0,0.5)] backdrop-blur-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p id="clear-inventory-title" className="text-sm leading-relaxed text-zinc-200">
-              Bạn có chắc muốn xóa toàn bộ vật phẩm trong kho không? Hành động này không thể hoàn tác.
-            </p>
-            <div className="mt-5 flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowClearConfirm(false)}
-                className="rounded-lg border border-zinc-600 bg-zinc-900/60 px-4 py-2.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:bg-zinc-800/80"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={confirmClearInventory}
-                className="rounded-lg border border-red-500/80 bg-red-950/50 px-4 py-2.5 text-sm font-medium text-red-100 shadow-[0_0_24px_rgba(239,68,68,0.45)] transition hover:border-red-400 hover:bg-red-950/70 hover:shadow-[0_0_32px_rgba(239,68,68,0.55)]"
-              >
-                Xác nhận xóa
-              </button>
+      <div className="inventory-page__workspace">
+        <InventoryTitleBar
+          inventoryTitle={inventoryTitle}
+          isEditingTitle={isEditingTitle}
+          titleDraft={titleDraft}
+          titleInputRef={titleInputRef}
+          onTitleDraftChange={setTitleDraft}
+          onCommitTitle={commitInventoryTitle}
+          onCancelEdit={cancelEditTitle}
+          onStartEdit={startEditTitle}
+          onClearInventory={() => setShowClearConfirm(true)}
+        />
+
+        <div className="inventory-page__body">
+          {items.length === 0 ? (
+            <div className="store-empty">
+              Chưa có vật phẩm nào. Mở thêm blind box để xây dựng kho đồ.
             </div>
-          </div>
+          ) : (
+            <>
+              <InventoryArmory
+                items={items}
+                rarityOrder={RARITY_ORDER}
+                rarityCounts={rarityCounts}
+                normalizeRarity={(raw) => normalizeRarity(raw)}
+                rarityToClassName={(r) => rarityToClassName(r as Rarity)}
+              />
+              <InventoryHintBar />
+            </>
+          )}
         </div>
-      )}
-    </main>
+      </div>
+
+      <StoreModal open={showClearConfirm} onClose={() => setShowClearConfirm(false)} titleId="clear-inventory-title">
+        <p id="clear-inventory-title" className="text-sm leading-relaxed text-zinc-200">
+          Bạn có chắc muốn xóa toàn bộ vật phẩm trong kho không? Hành động này không thể hoàn tác.
+        </p>
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
+          <StoreButton type="button" variant="secondary" onClick={() => setShowClearConfirm(false)}>
+            Hủy
+          </StoreButton>
+          <StoreButton type="button" variant="danger" onClick={confirmClearInventory}>
+            Xác nhận xóa
+          </StoreButton>
+        </div>
+      </StoreModal>
+    </StoreShell>
   );
 }

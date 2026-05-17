@@ -35,7 +35,7 @@ function AuthCallbackInner() {
   }, [searchParams, router]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#06070f] text-zinc-300">
+    <main className="store-shell flex min-h-[100dvh] items-center justify-center text-zinc-300">
       <p className="text-sm">{message}</p>
     </main>
   );
@@ -45,7 +45,7 @@ export default function AuthCallbackPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-[#06070f] text-zinc-300">
+        <main className="store-shell flex min-h-[100dvh] items-center justify-center text-zinc-300">
           <p className="text-sm">Đang tải…</p>
         </main>
       }
