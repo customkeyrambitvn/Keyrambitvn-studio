@@ -15,29 +15,33 @@ export function CompactTopNav() {
 
   return (
     <header className="compact-top-nav" aria-label="Điều hướng">
-      <Link href="/" className="compact-top-nav__logo" aria-label="Keyrambitvn">
-        {useFallback ? (
-          <span className="compact-top-nav__logo-fallback">KEYRAMBITVN</span>
-        ) : (
-          <Image
-            src={WORDMARK_SRC}
-            alt=""
-            fill
-            priority
-            sizes="120px"
-            className="object-contain object-left scale-[2.15] origin-left opacity-[0.96]"
-            onError={() => setUseFallback(true)}
-          />
-        )}
-      </Link>
+      <div className="compact-top-nav__row compact-top-nav__row--top">
+        <Link href="/" className="compact-top-nav__logo" aria-label="Keyrambitvn">
+          {useFallback ? (
+            <span className="compact-top-nav__logo-fallback">KEYRAMBITVN</span>
+          ) : (
+            <Image
+              src={WORDMARK_SRC}
+              alt=""
+              fill
+              priority
+              sizes="120px"
+              className="object-contain object-left scale-[2.15] origin-left opacity-[0.96]"
+              onError={() => setUseFallback(true)}
+            />
+          )}
+        </Link>
 
-      <div className="compact-top-nav__tabs">
-        <SiteMainNav />
+        <div className="compact-top-nav__tools">
+          <SfxMuteToggle />
+          <HeaderAuthControls />
+        </div>
       </div>
 
-      <div className="compact-top-nav__tools">
-        <SfxMuteToggle />
-        <HeaderAuthControls />
+      <div className="compact-top-nav__row compact-top-nav__row--tabs">
+        <div className="compact-top-nav__tabs">
+          <SiteMainNav />
+        </div>
       </div>
     </header>
   );
