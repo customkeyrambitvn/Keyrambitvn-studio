@@ -1,6 +1,6 @@
 "use client";
 
-import { playSfx, resumeSfxAudioContextSync, unlockSfxAudio } from "@/app/lib/sfx/sfx-manager";
+import { playSfx, primeSfxAudio } from "@/app/lib/sfx/sfx-manager";
 import { useSfx } from "../contexts/SfxContext";
 
 /** Global mute toggle for UI SFX. */
@@ -14,8 +14,7 @@ export function SfxMuteToggle() {
         const next = !muted;
         setMuted(next);
         if (!next) {
-          resumeSfxAudioContextSync();
-          void unlockSfxAudio();
+          primeSfxAudio();
           playSfx("ui_click", 1);
         }
       }}

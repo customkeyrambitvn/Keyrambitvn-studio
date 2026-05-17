@@ -14,10 +14,9 @@ import {
   getSfxVolume,
   initSfxManager,
   playSfx,
-  resumeSfxAudioContextSync,
+  primeSfxAudio,
   setSfxMuted,
   setSfxVolume,
-  unlockSfxAudio,
 } from "@/app/lib/sfx/sfx-manager";
 import type { SfxId } from "@/app/lib/sfx/types";
 
@@ -41,8 +40,7 @@ export function SfxProvider({ children }: { children: ReactNode }) {
     setVolumeState(getSfxVolume());
 
     const onGesture = () => {
-      resumeSfxAudioContextSync();
-      void unlockSfxAudio();
+      primeSfxAudio();
     };
 
     window.addEventListener("pointerdown", onGesture, { capture: true, passive: true });
@@ -67,7 +65,6 @@ export function SfxProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const play = useCallback((id: SfxId, volumeScale?: number) => {
-    resumeSfxAudioContextSync();
     playSfx(id, volumeScale);
   }, []);
 
