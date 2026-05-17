@@ -25,19 +25,27 @@ type SfxState = {
   muted: boolean;
   volume: number;
   initialized: boolean;
-  primed: boolean;
+  unlocked: boolean;
 };
 
 const state: SfxState = {
   muted: false,
   volume: DEFAULT_VOLUME,
   initialized: false,
-  primed: false,
+  unlocked: false,
 };
 
-/** Template elements — cloned per play so sounds can overlap. */
-const pool = new Map<SfxId, HTMLAudioElement>();
+const resolvedSrc = new Map<SfxId, string>();
 const lastPlayed = new Map<SfxId, number>();
+
+function sfxUrl(relativePath: string): string {
+  if (typeof window === "undefined") return relativePath;
+  try {
+    return new URL(relativePath, window.location.href).href;
+  } catch {
+    return relativePath;
+  }
+}
 
 function readStoredMute(): boolean {
   if (typeof window === "undefined") return false;
@@ -52,16 +60,38 @@ function readStoredVolume(): number {
   if (typeof window === "undefined") return DEFAULT_VOLUME;
   try {
     const v = Number(window.localStorage.getItem("keyrambit-sfx-volume"));
-    return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : DEFAULT_VOLUME;
+    if (!Number.isFinite(v)) return DEFAULT_VOLUME;
+    return Math.max(0, Math.min(1, v));
   } catch {
     return DEFAULT_VOLUME;
   }
 }
 
 function logPlayError(id: SfxId, err: unknown) {
-  if (process.env.NODE_ENV !== "development") return;
   const message = err instanceof Error ? err.message : String(err);
-  console.warn(`[sfx] play blocked for "${id}": ${message}. Click the page once, then check mute toggle.`);
+  console.warn(
+    `[sfx] "${id}" failed: ${message}. Muted=${state.muted} volume=${state.volume}. ` +
+      "Click the page, ensure the speaker icon is ON, then try: window.__sfxTest()"
+  );
+}
+
+function attachDevTestHook() {
+  if (process.env.NODE_ENV !== "development" || typeof window === "undefined") return;
+  const w = window as Window & { __sfxTest?: () => void; __sfxUnmute?: () => void };
+  w.__sfxTest = () => {
+    state.muted = false;
+    state.unlocked = true;
+    try {
+      window.localStorage.setItem("keyrambit-sfx-muted", "0");
+    } catch {
+      /* ignore */
+    }
+    playSfx("ui_click", 1);
+  };
+  w.__sfxUnmute = () => {
+    setSfxMuted(false);
+    state.unlocked = true;
+  };
 }
 
 export function initSfxManager() {
@@ -69,37 +99,36 @@ export function initSfxManager() {
   state.muted = readStoredMute();
   state.volume = readStoredVolume();
 
+  if (state.volume <= 0) {
+    state.volume = DEFAULT_VOLUME;
+  }
+
   (Object.keys(SFX_SRC) as SfxId[]).forEach((id) => {
-    const audio = new Audio(SFX_SRC[id]);
-    audio.preload = "auto";
-    audio.load();
-    pool.set(id, audio);
+    resolvedSrc.set(id, sfxUrl(SFX_SRC[id]));
   });
 
   state.initialized = true;
+  attachDevTestHook();
 }
 
-/** Warm up audio after first user gesture (mobile / strict autoplay). */
+/** Call on first user gesture — unlocks autoplay for HTML5 audio. */
 export function primeSfxAudio(): void {
   if (typeof window === "undefined") return;
   initSfxManager();
-  if (state.muted || state.primed) return;
+  if (state.muted) return;
 
-  const template = pool.get("ui_click");
-  if (!template) return;
+  state.unlocked = true;
 
-  const warm = template.cloneNode(true) as HTMLAudioElement;
-  warm.volume = 0.04 * state.volume;
-  void warm.play().then(() => {
-    warm.pause();
-    warm.currentTime = 0;
-    state.primed = true;
-  }).catch(() => {
-    /* will retry on next gesture */
+  const src = resolvedSrc.get("ui_click");
+  if (!src) return;
+
+  const warm = new Audio(src);
+  warm.volume = Math.min(0.2, state.volume);
+  void warm.play().catch(() => {
+    /* retry on next click */
   });
 }
 
-/** @deprecated HTML5 audio — kept for callers */
 export function resumeSfxAudioContextSync(): void {
   primeSfxAudio();
 }
@@ -125,6 +154,7 @@ export function setSfxMuted(muted: boolean) {
     /* ignore */
   }
   if (!muted) {
+    state.unlocked = true;
     primeSfxAudio();
   }
 }
@@ -139,14 +169,39 @@ export function setSfxVolume(volume: number) {
   }
 }
 
+function createSound(id: SfxId): HTMLAudioElement | null {
+  const src = resolvedSrc.get(id);
+  if (!src) return null;
+  const sound = new Audio(src);
+  sound.preload = "auto";
+  return sound;
+}
+
 function playAudio(id: SfxId, volumeScale: number) {
-  const template = pool.get(id);
-  if (!template) return;
+  const sound = createSound(id);
+  if (!sound) return;
 
-  const sound = template.cloneNode(true) as HTMLAudioElement;
-  sound.volume = Math.max(0, Math.min(1, state.volume * volumeScale));
+  const vol = Math.max(0, Math.min(1, state.volume * volumeScale));
+  sound.volume = vol;
 
-  void sound.play().catch((err) => logPlayError(id, err));
+  const attempt = () => {
+    sound.currentTime = 0;
+    const p = sound.play();
+    if (p !== undefined) {
+      void p.catch((err) => logPlayError(id, err));
+    }
+  };
+
+  if (sound.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+    attempt();
+    return;
+  }
+
+  sound.addEventListener("canplaythrough", attempt, { once: true });
+  sound.addEventListener("error", () => {
+    logPlayError(id, new Error(`Could not load ${sound.src}`));
+  }, { once: true });
+  sound.load();
 }
 
 /** Play UI sound with anti-spam cooldown. */
@@ -154,6 +209,10 @@ export function playSfx(id: SfxId, volumeScale = 1) {
   if (typeof window === "undefined") return;
   if (!state.initialized) initSfxManager();
   if (state.muted) return;
+
+  if (!state.unlocked) {
+    state.unlocked = true;
+  }
 
   const now = Date.now();
   const cd = COOLDOWN_MS[id];

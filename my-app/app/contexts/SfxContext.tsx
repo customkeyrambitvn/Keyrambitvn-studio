@@ -65,6 +65,7 @@ export function SfxProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const play = useCallback((id: SfxId, volumeScale?: number) => {
+    primeSfxAudio();
     playSfx(id, volumeScale);
   }, []);
 

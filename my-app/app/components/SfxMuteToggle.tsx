@@ -18,6 +18,10 @@ export function SfxMuteToggle() {
           playSfx("ui_click", 1);
         }
       }}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        if (!muted) primeSfxAudio();
+      }}
       className="sfx-mute-toggle"
       aria-pressed={muted}
       aria-label={muted ? "Bật âm thanh giao diện" : "Tắt âm thanh giao diện"}
