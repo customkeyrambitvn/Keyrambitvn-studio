@@ -24,7 +24,9 @@ export function InventoryPedestal({ item, transitionKey }: InventoryPedestalProp
   if (!item) {
     return (
       <div className="inventory-pedestal inventory-pedestal--empty">
-        <p className="inventory-pedestal__empty-text">Chọn một Keyrambit từ kệ lưu trữ để xem chi tiết.</p>
+        <p className="inventory-pedestal__empty-text">
+          Chọn một Keyrambit từ kệ lưu trữ để xem chi tiết.
+        </p>
       </div>
     );
   }
