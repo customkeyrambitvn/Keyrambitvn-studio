@@ -20,18 +20,18 @@ const COOLDOWN_MS: Partial<Record<SfxId, number>> = {
   toast: 400,
 };
 
+const DEFAULT_VOLUME = 0.85;
+
 type SfxState = {
   muted: boolean;
   volume: number;
   initialized: boolean;
-  unlocked: boolean;
 };
 
 const state: SfxState = {
   muted: false,
-  volume: 0.72,
+  volume: DEFAULT_VOLUME,
   initialized: false,
-  unlocked: false,
 };
 
 const pool = new Map<SfxId, Howl>();
@@ -47,12 +47,27 @@ function readStoredMute(): boolean {
 }
 
 function readStoredVolume(): number {
-  if (typeof window === "undefined") return 0.72;
+  if (typeof window === "undefined") return DEFAULT_VOLUME;
   try {
     const v = Number(window.localStorage.getItem("keyrambit-sfx-volume"));
-    return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.72;
+    return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : DEFAULT_VOLUME;
   } catch {
-    return 0.72;
+    return DEFAULT_VOLUME;
+  }
+}
+
+/** Resume Web Audio in the same user-gesture stack (required on mobile). */
+export function resumeSfxAudioContextSync(): void {
+  if (typeof window === "undefined") return;
+  initSfxManager();
+  const ctx = Howler.ctx as AudioContext | undefined;
+  if (!ctx) return;
+  if (ctx.state === "suspended") {
+    try {
+      void ctx.resume();
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -73,7 +88,7 @@ export function initSfxManager() {
         html5: false,
         onloaderror: (_id, err) => {
           if (process.env.NODE_ENV === "development") {
-            console.warn(`[sfx] failed to load ${id}:`, err);
+            console.warn(`[sfx] failed to load ${id} (${SFX_SRC[id]}):`, err);
           }
         },
       })
@@ -86,24 +101,19 @@ export function initSfxManager() {
 export function unlockSfxAudio(): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
   initSfxManager();
-  if (state.unlocked) return Promise.resolve();
+  resumeSfxAudioContextSync();
 
   const ctx = Howler.ctx as AudioContext | undefined;
-  if (!ctx) {
-    state.unlocked = true;
-    return Promise.resolve();
-  }
+  if (!ctx) return Promise.resolve();
 
-  if (ctx.state === "running") {
-    state.unlocked = true;
-    return Promise.resolve();
-  }
+  if (ctx.state === "running") return Promise.resolve();
 
-  return ctx.resume().then(() => {
-    state.unlocked = true;
-  }).catch(() => {
-    /* still try playback on next gesture */
-  });
+  return ctx
+    .resume()
+    .catch(() => {
+      /* retry on next gesture */
+    })
+    .then(() => undefined);
 }
 
 export function getSfxMuted() {
@@ -123,6 +133,7 @@ export function setSfxMuted(muted: boolean) {
     /* ignore */
   }
   if (!muted) {
+    resumeSfxAudioContextSync();
     void unlockSfxAudio();
   }
 }
@@ -138,11 +149,30 @@ export function setSfxVolume(volume: number) {
   }
 }
 
+function playHowl(howl: Howl, volumeScale: number) {
+  const vol = Math.max(0.35, Math.min(1, volumeScale));
+
+  const start = () => {
+    howl.volume(vol);
+    howl.play();
+  };
+
+  if (howl.state() === "unloaded") {
+    howl.once("load", start);
+    howl.load();
+    return;
+  }
+
+  start();
+}
+
 /** Play UI sound with anti-spam cooldown. */
 export function playSfx(id: SfxId, volumeScale = 1) {
   if (typeof window === "undefined") return;
   if (!state.initialized) initSfxManager();
   if (state.muted) return;
+
+  resumeSfxAudioContextSync();
 
   const run = () => {
     const now = Date.now();
@@ -156,24 +186,13 @@ export function playSfx(id: SfxId, volumeScale = 1) {
     const howl = pool.get(id);
     if (!howl) return;
 
-    const vol = Math.max(0.15, Math.min(1, volumeScale * state.volume));
-    howl.volume(vol);
-
-    if (howl.state() === "unloaded") {
-      howl.once("load", () => howl.play());
-      howl.load();
-      return;
-    }
-
-    const soundId = howl.play();
-    if (soundId === undefined && process.env.NODE_ENV === "development") {
-      console.warn(`[sfx] play blocked for ${id} — try clicking the page first`);
-    }
+    playHowl(howl, volumeScale);
   };
 
-  if (!state.unlocked) {
-    void unlockSfxAudio().then(run);
-    return;
-  }
   run();
+
+  const ctx = Howler.ctx as AudioContext | undefined;
+  if (ctx?.state === "suspended") {
+    void ctx.resume().then(run).catch(() => run());
+  }
 }

@@ -14,6 +14,7 @@ import {
   getSfxVolume,
   initSfxManager,
   playSfx,
+  resumeSfxAudioContextSync,
   setSfxMuted,
   setSfxVolume,
   unlockSfxAudio,
@@ -32,21 +33,26 @@ const SfxContext = createContext<SfxContextValue | null>(null);
 
 export function SfxProvider({ children }: { children: ReactNode }) {
   const [muted, setMutedState] = useState(false);
-  const [volume, setVolumeState] = useState(0.55);
+  const [volume, setVolumeState] = useState(0.85);
 
   useEffect(() => {
     initSfxManager();
     setMutedState(getSfxMuted());
     setVolumeState(getSfxVolume());
 
-    const onFirstGesture = () => {
+    const onGesture = () => {
+      resumeSfxAudioContextSync();
       void unlockSfxAudio();
     };
-    window.addEventListener("pointerdown", onFirstGesture, { once: true, passive: true });
-    window.addEventListener("keydown", onFirstGesture, { once: true });
+
+    window.addEventListener("pointerdown", onGesture, { capture: true, passive: true });
+    window.addEventListener("touchstart", onGesture, { capture: true, passive: true });
+    window.addEventListener("keydown", onGesture, { capture: true });
+
     return () => {
-      window.removeEventListener("pointerdown", onFirstGesture);
-      window.removeEventListener("keydown", onFirstGesture);
+      window.removeEventListener("pointerdown", onGesture, { capture: true });
+      window.removeEventListener("touchstart", onGesture, { capture: true });
+      window.removeEventListener("keydown", onGesture, { capture: true });
     };
   }, []);
 
@@ -61,7 +67,7 @@ export function SfxProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const play = useCallback((id: SfxId, volumeScale?: number) => {
-    void unlockSfxAudio();
+    resumeSfxAudioContextSync();
     playSfx(id, volumeScale);
   }, []);
 

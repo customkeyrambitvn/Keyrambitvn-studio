@@ -47,13 +47,16 @@ export function MotionButton({
   };
 
   if (href) {
-    const linkRest = rest;
     return (
       <Link
         href={href}
         className={`${cn}${disabled ? " pointer-events-none opacity-45" : ""}`}
         aria-disabled={disabled || undefined}
-        {...(linkRest as object)}
+        onClick={(e) => {
+          if (!disabled) play("ui_click");
+          onClick?.(e as unknown as React.MouseEvent<HTMLButtonElement>);
+        }}
+        {...(rest as object)}
       >
         <span className="motion-btn__shine" aria-hidden />
         {children}
