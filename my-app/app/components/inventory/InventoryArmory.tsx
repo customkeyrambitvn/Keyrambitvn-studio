@@ -11,6 +11,7 @@ import {
   type InventorySortMode,
 } from "@/app/lib/inventory-sort";
 import { InventoryGridSlot } from "./InventoryGridSlot";
+import { InventoryMobileCarousel } from "./InventoryMobileCarousel";
 import { InventoryPedestal, type PedestalItem } from "./InventoryPedestal";
 import { InventorySummaryPanel } from "./InventorySummaryPanel";
 
@@ -161,6 +162,18 @@ export function InventoryArmory({
       <div className="inventory-armory__inspect-wrap">
         <InventoryPedestal item={pedestalItem} transitionKey={transitionKey} />
       </div>
+
+      <InventoryMobileCarousel
+        items={items}
+        sortedItems={sortedItems}
+        selectedId={selectedId}
+        sortMode={sortMode}
+        onSortChange={setSortMode}
+        stackByName={stackByName}
+        normalizeRarity={normalizeRarity}
+        rarityToClassName={rarityToClassName}
+        onSelect={handleSelect}
+      />
 
       <InventorySummaryPanel
         totalItems={items.length}

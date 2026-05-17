@@ -2,6 +2,7 @@ export { InventoryArmory, type ArmoryInventoryItem } from "./InventoryArmory";
 export { InventoryCompactTopNav } from "./InventoryCompactTopNav";
 export { InventoryTitleBar } from "./InventoryTitleBar";
 export { InventoryGridSlot } from "./InventoryGridSlot";
+export { InventoryMobileCarousel } from "./InventoryMobileCarousel";
 export { SelectedItemShowcase } from "./SelectedItemShowcase";
 export { InventoryHintBar } from "./InventoryHintBar";
 export { InventoryPedestal } from "./InventoryPedestal";

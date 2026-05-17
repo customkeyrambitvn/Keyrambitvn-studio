@@ -12,6 +12,7 @@ type InventoryGridSlotProps = {
   selected: boolean;
   stackCount?: number;
   onSelect: () => void;
+  className?: string;
 };
 
 function rarityShortLabel(rarity: string): string {
@@ -37,6 +38,7 @@ export function InventoryGridSlot({
   selected,
   stackCount = 1,
   onSelect,
+  className = "",
 }: InventoryGridSlotProps) {
   const { play } = useSfx();
   const resolved = useResolvedProductImage(name, image);
@@ -50,6 +52,7 @@ export function InventoryGridSlot({
         "inventory-grid__slot",
         rarityClassName,
         selected ? "inventory-grid__slot--selected" : "",
+        className,
       ]
         .filter(Boolean)
         .join(" ")}
